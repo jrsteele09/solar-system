@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(solar_cpp LANGUAGES C CXX)
+project(solar_system LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ FetchContent_MakeAvailable(glm raylib)
 # Earth and other planet surface maps use JPEG images.
 target_compile_definitions(raylib PRIVATE SUPPORT_FILEFORMAT_JPG=1)
 
-add_executable(solar_cpp
+add_executable(solar_system
     src/main.cpp
     src/astronomy/earth.cpp
     src/astronomy/moon.cpp
@@ -41,11 +41,11 @@ add_executable(solar_cpp
     src/shader/sun_glow.cpp
 )
 
-target_include_directories(solar_cpp PRIVATE src)
-target_link_libraries(solar_cpp PRIVATE glm::glm raylib)
+target_include_directories(solar_system PRIVATE src)
+target_link_libraries(solar_system PRIVATE glm::glm raylib)
 
-target_compile_definitions(solar_cpp PRIVATE GLM_FORCE_INTRINSICS)
-target_compile_definitions(solar_cpp PRIVATE GLM_FORCE_CTOR_INIT)
+target_compile_definitions(solar_system PRIVATE GLM_FORCE_INTRINSICS)
+target_compile_definitions(solar_system PRIVATE GLM_FORCE_CTOR_INIT)
 
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/de442s.bsp"
@@ -60,7 +60,7 @@ add_custom_command(
     VERBATIM
 )
 add_custom_target(solar_ephemeris DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/de442s.bsp")
-add_dependencies(solar_cpp solar_ephemeris)
+add_dependencies(solar_system solar_ephemeris)
 
 function(add_texture name url sha256)
     add_custom_command(
@@ -87,12 +87,12 @@ add_custom_target(solar_textures DEPENDS
     "${CMAKE_CURRENT_BINARY_DIR}/earth_daymap.jpg"
     "${CMAKE_CURRENT_BINARY_DIR}/earth_night.jpg"
     "${CMAKE_CURRENT_BINARY_DIR}/moon.jpg")
-add_dependencies(solar_cpp solar_textures)
+add_dependencies(solar_system solar_textures)
 configure_file(assets/fonts/Lato-Regular.ttf Lato-Regular.ttf COPYONLY)
 configure_file(src/shader/sunlight.vs sunlight.vs COPYONLY)
 configure_file(src/shader/sunlight.fs sunlight.fs COPYONLY)
 configure_file(src/shader/sun_glow.fs sun_glow.fs COPYONLY)
-target_compile_definitions(solar_cpp PRIVATE
+target_compile_definitions(solar_system PRIVATE
     SOLAR_EPHEMERIS_PATH="${CMAKE_CURRENT_BINARY_DIR}/de442s.bsp"
     SOLAR_EARTH_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/earth_daymap.jpg"
     SOLAR_EARTH_NIGHT_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/earth_night.jpg"
