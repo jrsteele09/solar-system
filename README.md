@@ -1,8 +1,8 @@
-# solar-cpp
+# Solar System
 
 A solar system viewer written in C++.
 
-You can currently view; The Sun, The Earth and The Moon.
+You can currently view the Sun, Earth and Moon.
 
 
 ## Setup
@@ -15,23 +15,6 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./build/solar_cpp
 ```
-
-### After moving the project
-
-CMake build directories contain absolute paths and cannot be moved with the
-source tree. If the project has been relocated, move the old build directory
-aside and configure again:
-
-```sh
-mv build build-before-relocation
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-```
-
-Choose a different backup name if `build-before-relocation` already exists.
-The new build downloads its dependencies again; the old build directory can be
-deleted once it is no longer needed. CMake's `--fresh` option alone is not
-enough here because the downloaded dependencies also have CMake caches.
 
 ## Downloads
 
@@ -48,3 +31,33 @@ During the build, it downloads any missing textures into `assets/textures/`:
 The build also downloads the [DE442s ephemeris](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442s.bsp)
 from NASA JPL into `assets/de442s.bsp`. It verifies the downloaded files and
 reuses them on later builds. See [assets/README.md](assets/README.md) for details.
+
+## Architecture
+
+The application sets up the scene and runs the update and draw loop. The scene
+uses ephemeris data and body orientations to update the Sun, Earth and Moon;
+the controls panel and camera handle navigation.
+
+```mermaid
+flowchart TD
+    App[Application and main loop] --> Scene
+    App --> Controls[Controls panel]
+    App --> Camera
+    Controls --> Scene
+    Controls --> Camera
+    Scene --> Astronomy[Astronomy: positions and orientations]
+    Astronomy --> Ephemeris[DE442s ephemeris]
+    Scene --> Camera
+    Scene --> Bodies[Celestial bodies: Sun, Earth and Moon]
+    Bodies --> Meshes[Sphere meshes]
+    Bodies --> Textures[Surface textures]
+    Bodies --> Shaders[Sunlight and glow shaders]
+    Scene --> Shaders
+    Camera --> Raylib[raylib: window, input and rendering]
+    Controls --> Raylib
+    Meshes --> Raylib
+    Textures --> Raylib
+    Shaders --> Raylib
+    Astronomy --> GLM[GLM: mathematics]
+    Camera --> GLM
+```

@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug solar_cpp",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/solar_cpp",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake: Build (Debug)"
+        }
+    ]
+}
