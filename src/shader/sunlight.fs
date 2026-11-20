@@ -6,6 +6,9 @@ in vec2 texCoord;
 
 uniform sampler2D texture0;
 uniform sampler2D nightMap;
+uniform sampler2D cloudMap;
+uniform int cloudsEnabled;
+uniform float cloudOpacityScale;
 uniform int nightLightsEnabled;
 uniform int shadowsEnabled;
 uniform vec4 colDiffuse;
@@ -18,6 +21,9 @@ void main() {
     vec3 towardSun = normalize(sunPosition - worldPosition);
     float sunlight = max(dot(normal, towardSun), 0.0);
     vec4 surface = texture(texture0, texCoord) * colDiffuse;
+    float cloud = cloudsEnabled != 0 ? texture(cloudMap, texCoord).r : 0.0;
+    float cloudOpacity = (1.0 - exp(-cloud * cloud * 2.6)) * cloudOpacityScale;
+    surface.rgb = mix(surface.rgb, vec3(0.92, 0.93, 0.94), cloudOpacity);
     if (shadowsEnabled == 0) {
         finalColor = surface;
         return;
@@ -34,7 +40,7 @@ void main() {
         float brightness = max(max(nightSample.r, nightSample.g), nightSample.b);
         float neutral = smoothstep(-0.025, 0.0, redMinusBlue) * smoothstep(0.18, 0.4, brightness);
         float city = max(warmth, neutral);
-        litColor += nightColor * city * 1.8 * night;
+        litColor += nightColor * city * 1.8 * night * (1.0 - cloudOpacity);
     }
     finalColor = vec4(pow(max(litColor, vec3(0.0)), vec3(1.0 / 2.2)), surface.a);
 }

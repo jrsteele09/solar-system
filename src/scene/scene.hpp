@@ -4,8 +4,11 @@
 #include "camera/camera.hpp"
 #include "celestial/celestial_body.hpp"
 #include "shader/sunlight.hpp"
+#include "earth_clouds.hpp"
+#include "star_field.hpp"
 
 #include <functional>
+#include <algorithm>
 #include <span>
 #include <vector>
 
@@ -26,6 +29,12 @@ namespace solar {
         std::span<const BodyUpdate> bodies() const { return bodies_; }
         bool earthLights() const { return earthLights_; }
         void setEarthLights(bool enabled) { earthLights_ = enabled; }
+        bool cloudsEnabled() const { return clouds_.enabled(); }
+        bool cloudsLoading() const { return clouds_.loading(); }
+        bool cloudsFailed() const { return clouds_.failed(); }
+        void setCloudsEnabled(bool enabled) { clouds_.enable(enabled); }
+        float cloudOpacity() const { return cloudOpacity_; }
+        void setCloudOpacity(float opacity) { cloudOpacity_ = std::clamp(opacity, 0.0f, 1.0f); }
         bool shadowsEnabled() const { return shadowsEnabled_; }
         void setShadowsEnabled(bool enabled) { shadowsEnabled_ = enabled; }
 
@@ -33,7 +42,10 @@ namespace solar {
         std::vector<BodyUpdate> bodies_;
         std::vector<const CelestialBody*> cameraBodies_;
         const Sunlight& sunlight_;
+        EarthClouds clouds_;
+        StarField stars_;
         bool earthLights_ = true;
+        float cloudOpacity_ = 0.58f;
         bool shadowsEnabled_ = true;
     };
 } // namespace solar

@@ -26,8 +26,9 @@ namespace solar {
     // Display name for an ephemeris body.
     const char* bodyName(Body body);
 
-    // Reads NASA JPL's pre-calculated solar system data and finds a body's
-    // position in kilometres from the Sun at a given time.
+    // An ephemeris is data used to find where celestial bodies are at a given time.
+    // This class reads NASA JPL's pre-calculated data and returns positions in
+    // kilometres relative to the Sun.
     class Ephemeris {
       public:
         // Open the JPL file so it is ready to answer questions about positions.

@@ -1,5 +1,6 @@
 #include "ephemeris.hpp"
 #include "coordinates.hpp"
+#include "time.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -9,6 +10,7 @@
 #include <stdexcept>
 
 namespace solar {
+
     const char* bodyName(Body body) {
         switch (body) {
         case Body::Sun:
@@ -36,24 +38,36 @@ namespace solar {
         }
         return "Unknown";
     }
-    namespace {
-        std::uint32_t read32(const std::vector<std::uint8_t>& data, std::size_t offset) {
-            if (offset > data.size() || data.size() - offset < 4)
-                throw std::runtime_error("Invalid ephemeris file");
-            std::uint32_t value = 0;
-            for (int i = 0; i < 4; ++i)
-                value |= std::uint32_t(data[offset + i]) << (8 * i);
-            return value;
+
+    // Read a 32-bit little-endian unsigned integer, rejecting incomplete data.
+    std::uint32_t readUint32(const std::vector<std::uint8_t>& data, std::size_t offset) {
+        // Check parameters
+        if (offset > data.size() || data.size() - offset < 4) {
+            throw std::runtime_error("Invalid ephemeris file");
         }
-    } // namespace
+
+        std::uint32_t value = 0;
+
+        // Loop through the 4 bytes and construct the integer in little-endian order
+        for (int i = 0; i < 4; ++i) {
+            value |= std::uint32_t(data[offset + i]) << (8 * i);
+        }
+
+        return value;
+    }
 
     // Read a double stored in the file’s little-endian byte order.
     double Ephemeris::readDouble(std::size_t offset) const {
+        // Check parameters
         if (offset > ephemerisBytes_.size() || ephemerisBytes_.size() - offset < 8)
             throw std::runtime_error("Invalid ephemeris file");
+
+        // Read the 8 bytes and construct a 64-bit integer in little-endian order
         std::uint64_t bits = 0;
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 8; ++i) {
             bits |= std::uint64_t(ephemerisBytes_[offset + i]) << (8 * i);
+        }
+
         return std::bit_cast<double>(bits);
     }
 
@@ -62,17 +76,18 @@ namespace solar {
         if (!file)
             throw std::runtime_error("Cannot open ephemeris: " + path);
 
+        // Populate the vector with the file’s bytes. This is faster than reading one number at a time.
         ephemerisBytes_ = {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 
         if (ephemerisBytes_.size() < 1024 ||
             std::string(ephemerisBytes_.begin(), ephemerisBytes_.begin() + 8) != "DAF/SPK " ||
             std::string(ephemerisBytes_.begin() + 88, ephemerisBytes_.begin() + 96) != "LTL-IEEE" ||
-            read32(ephemerisBytes_, 8) != 2 || read32(ephemerisBytes_, 12) != 6)
+            readUint32(ephemerisBytes_, 8) != 2 || readUint32(ephemerisBytes_, 12) != 6)
 
             throw std::runtime_error("Invalid ephemeris header");
 
         // Read the directory so each body’s data can be found without searching the file.
-        auto record = read32(ephemerisBytes_, 76);
+        auto record = readUint32(ephemerisBytes_, 76);
 
         while (record != 0) {
             const std::size_t offset = (std::size_t(record) - 1) * 1024;
@@ -84,8 +99,9 @@ namespace solar {
                 throw std::runtime_error("Invalid ephemeris summaries");
             for (int i = 0; i < count; ++i) {
                 const auto summary = offset + 24 + i * 40;
-                const auto first = read32(ephemerisBytes_, summary + 32), last = read32(ephemerisBytes_, summary + 36);
-                if (read32(ephemerisBytes_, summary + 24) != 1 || read32(ephemerisBytes_, summary + 28) != 2 ||
+                const auto first = readUint32(ephemerisBytes_, summary + 32),
+                           last = readUint32(ephemerisBytes_, summary + 36);
+                if (readUint32(ephemerisBytes_, summary + 24) != 1 || readUint32(ephemerisBytes_, summary + 28) != 2 ||
                     first < 1 || last < first + 4 || last > ephemerisBytes_.size() / 8)
                     throw std::runtime_error("Unsupported ephemeris segment");
                 const auto directory = (std::size_t(last) - 4) * 8;
@@ -93,8 +109,8 @@ namespace solar {
                           readDouble(summary + 8),
                           readDouble(directory),
                           readDouble(directory + 8),
-                          static_cast<int>(read32(ephemerisBytes_, summary + 16)),
-                          static_cast<int>(read32(ephemerisBytes_, summary + 20)),
+                          static_cast<int>(readUint32(ephemerisBytes_, summary + 16)),
+                          static_cast<int>(readUint32(ephemerisBytes_, summary + 20)),
                           static_cast<int>(first),
                           static_cast<int>(readDouble(directory + 16)),
                           static_cast<int>(readDouble(directory + 24))};
@@ -109,9 +125,8 @@ namespace solar {
             throw std::runtime_error("Empty ephemeris");
     }
 
+    // Find the target's position relative to the solar system barycentre, its centre of mass.
     glm::dvec3 Ephemeris::barycentricPosition(int target, double seconds) const {
-        // Some positions are relative to another body. Follow that chain and add them
-        // to get a position relative to the solar system’s centre of mass.
         glm::dvec3 result{0};
         for (std::size_t depth = 0; depth <= segments_.size(); ++depth) {
             if (target == 0)

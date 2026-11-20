@@ -100,6 +100,10 @@ namespace solar {
         SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_EMISSION, texture.texture());
     }
 
+    void CelestialBody::setCloudTexture(Texture2D texture) {
+        SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_OCCLUSION, texture);
+    }
+
     void CelestialBody::draw(Vector3 position) const {
         Model model = model_;
         model.transform = {orientation_[0][0], orientation_[1][0], orientation_[2][0], orientation_[3][0],

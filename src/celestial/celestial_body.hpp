@@ -31,6 +31,7 @@ namespace solar {
 
         // Return the body's position in kilometres from the Sun.
         glm::dvec3 positionKm() const { return positionKm_; }
+        const glm::mat4& orientation() const { return orientation_; }
 
         // Return the radius of the body used for drawing and selection.
         float radiusSceneUnits() const { return radiusSceneUnits_; }
@@ -40,6 +41,7 @@ namespace solar {
 
         // The night texture must outlive the body.
         void setNightTexture(const SurfaceTexture& texture);
+        void setCloudTexture(Texture2D texture);
 
         // Draw the body's surface at its position relative to the camera.
         void draw(Vector3 position) const;

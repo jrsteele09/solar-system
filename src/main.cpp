@@ -1,8 +1,8 @@
-#include "astronomy/earth.hpp"
 #include "astronomy/ephemeris.hpp"
-#include "astronomy/moon.hpp"
+#include "astronomy/planet_orientation.hpp"
 #include "camera/camera.hpp"
 #include "celestial/celestial_body.hpp"
+#include "celestial/saturn.hpp"
 #include "celestial/sun.hpp"
 #include "celestial/surface_texture.hpp"
 #include "mesh/mesh.hpp"
@@ -11,12 +11,17 @@
 #include "shader/sun_glow.hpp"
 #include "shader/sunlight.hpp"
 
+#include <array>
 #include <chrono>
+#include <memory>
 #include <raylib.h>
+#include <vector>
 
 namespace {
     constexpr int screenWidth = 1280;
     constexpr int screenHeight = 720;
+    constexpr int minimumWindowWidth = 480;
+    constexpr int minimumWindowHeight = 360;
     constexpr int targetFps = 60;
     constexpr double kmPerSceneUnit = 3185.5042;
     constexpr double earthRadiusKm = 6371.0084;
@@ -42,7 +47,9 @@ namespace {
 } // namespace
 
 int main() {
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "Earth");
+    SetWindowMinSize(minimumWindowWidth, minimumWindowHeight);
     SetTargetFPS(targetFps);
     {
         // Record the current UTC time and a steady clock time to measure elapsed time.
@@ -75,10 +82,44 @@ int main() {
         const solar::Mesh sunMesh = solar::Mesh::createSphere(1.0f, 32, 64);
         solar::Sun sun{sunMesh, sunSceneUnits, sunGlow, sunColor};
 
-        // Setup the Scene
-        const std::array sceneBodies{solar::BodyUpdate{&earth, solar::Body::Earth, solar::earthOrientation},
-                                     solar::BodyUpdate{&moon, solar::Body::Moon, solar::moonOrientation},
-                                     solar::BodyUpdate{&sun, solar::Body::Sun, nullptr}};
+        // Mean radii in kilometres. The outer planets use their system barycentres in DE442s.
+        struct PlanetDefinition {
+            solar::Body body;
+            double radiusKm;
+            const char* texturePath;
+        };
+        const std::array planets{
+            PlanetDefinition{solar::Body::Mercury, 2439.4, SOLAR_MERCURY_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::Venus, 6051.8, SOLAR_VENUS_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::MarsSystem, 3389.5, SOLAR_MARS_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::JupiterSystem, 69911.0, SOLAR_JUPITER_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::SaturnSystem, 58232.0, SOLAR_SATURN_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::UranusSystem, 25362.0, SOLAR_URANUS_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::NeptuneSystem, 24622.0, SOLAR_NEPTUNE_TEXTURE_PATH},
+            PlanetDefinition{solar::Body::PlutoSystem, 1188.3, SOLAR_PLUTO_TEXTURE_PATH},
+        };
+        const solar::SurfaceTexture saturnRingTexture{SOLAR_SATURN_RING_TEXTURE_PATH};
+        std::vector<std::unique_ptr<solar::SurfaceTexture>> planetTextures;
+        std::vector<std::unique_ptr<solar::CelestialBody>> otherPlanets;
+        std::vector<solar::BodyUpdate> sceneBodies{{&sun, solar::Body::Sun, nullptr}};
+        for (const auto& planet : planets) {
+            if (planet.body == solar::Body::MarsSystem) {
+                sceneBodies.push_back({&earth, solar::Body::Earth, solar::earthOrientation});
+                sceneBodies.push_back({&moon, solar::Body::Moon, solar::moonOrientation});
+            }
+            planetTextures.push_back(std::make_unique<solar::SurfaceTexture>(planet.texturePath));
+            const double radius = planet.radiusKm / kmPerSceneUnit;
+            const glm::dvec3 position = ephemeris.position(planet.body, startUtc);
+            if (planet.body == solar::Body::SaturnSystem)
+                otherPlanets.push_back(std::make_unique<solar::Saturn>(
+                    planetMesh, radius, position, *planetTextures.back(), saturnRingTexture, sunlight));
+            else
+                otherPlanets.push_back(std::make_unique<solar::CelestialBody>(planetMesh, radius, position,
+                                                                              planetTextures.back().get(), &sunlight));
+            sceneBodies.push_back(
+                {otherPlanets.back().get(), planet.body,
+                 [body = planet.body](double, double elapsed) { return solar::planetOrientation(body, elapsed); }});
+        }
 
         solar::Scene scene{sceneBodies, sunlight};
         solar::ControlsPanel controls;
