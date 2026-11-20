@@ -14,6 +14,7 @@ namespace solar {
         EarthClouds& operator=(const EarthClouds&) = delete;
 
         void enable(bool enabled);
+        void refresh();
         void update();
         bool enabled() const { return enabled_; }
         bool loading() const { return pending_.valid(); }

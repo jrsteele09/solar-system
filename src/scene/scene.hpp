@@ -33,6 +33,7 @@ namespace solar {
         bool cloudsLoading() const { return clouds_.loading(); }
         bool cloudsFailed() const { return clouds_.failed(); }
         void setCloudsEnabled(bool enabled) { clouds_.enable(enabled); }
+        void refreshClouds() { clouds_.refresh(); }
         float cloudOpacity() const { return cloudOpacity_; }
         void setCloudOpacity(float opacity) { cloudOpacity_ = std::clamp(opacity, 0.0f, 1.0f); }
         bool shadowsEnabled() const { return shadowsEnabled_; }

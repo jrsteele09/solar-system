@@ -92,7 +92,11 @@ namespace solar {
 
     void EarthClouds::enable(bool enabled) {
         enabled_ = enabled;
-        if (!enabled || pending_.valid())
+        if (enabled) refresh();
+    }
+
+    void EarthClouds::refresh() {
+        if (!enabled_ || pending_.valid())
             return;
         failed_ = !curlReady_;
         if (curlReady_) {

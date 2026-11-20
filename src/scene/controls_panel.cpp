@@ -16,9 +16,14 @@ namespace solar {
                     earthNearest ? (showOpacity ? 322.0f : 278.0f) : 190.0f};
         }
         Rectangle comboBounds(Rectangle panel) { return {panel.x + 12, panel.y + 42, panel.width - 24, 34}; }
+        Rectangle hideBounds(Rectangle panel) { return {panel.x + panel.width - 58, panel.y + 9, 46, 25}; }
+        Rectangle revealBounds() { return {GetScreenWidth() - margin - 90, margin, 90, 28}; }
         Rectangle resetBounds(Rectangle panel) { return {panel.x + 12, panel.y + 98, panel.width - 24, 32}; }
         Rectangle lightsBounds(Rectangle panel) { return {panel.x + 12, panel.y + 142, panel.width - 24, 32}; }
-        Rectangle cloudsBounds(Rectangle panel) { return {panel.x + 12, panel.y + 186, panel.width - 24, 32}; }
+        Rectangle cloudsBounds(Rectangle panel, bool enabled) {
+            return {panel.x + 12, panel.y + 186, enabled ? 100.0f : panel.width - 24, 32};
+        }
+        Rectangle refreshCloudsBounds(Rectangle panel) { return {panel.x + 118, panel.y + 186, panel.width - 130, 32}; }
         Rectangle opacityBounds(Rectangle panel) { return {panel.x + 12, panel.y + 222, panel.width - 24, 44}; }
         Rectangle opacityTrack(Rectangle panel) { return {panel.x + 20, panel.y + 251, panel.width - 40, 4}; }
         Rectangle shadowBounds(Rectangle panel, bool earthNearest, bool showOpacity) {
@@ -67,16 +72,22 @@ namespace solar {
     ControlsPanel::~ControlsPanel() { UnloadFont(font_); }
 
     bool ControlsPanel::containsMouse(const Scene& scene, const Camera& camera) const {
+        if (hidden_) return CheckCollisionPointRec(GetMousePosition(), revealBounds());
         // While the list is open, an outside click dismisses it without affecting the scene.
         return open_ || draggingCloudOpacity_ ||
                CheckCollisionPointRec(GetMousePosition(), panelBounds(earthIsNearest(scene.bodies(), camera), scene.cloudsEnabled()));
     }
 
     void ControlsPanel::update(Scene& scene, Camera& camera, glm::dvec3 sunPositionKm) {
+        const Vector2 mouse = GetMousePosition();
+        if (hidden_) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, revealBounds()))
+                hidden_ = false;
+            return;
+        }
         const auto bodies = scene.bodies();
         const bool earthNearest = earthIsNearest(bodies, camera);
         const Rectangle panel = panelBounds(earthNearest, scene.cloudsEnabled());
-        const Vector2 mouse = GetMousePosition();
         const Rectangle combo = comboBounds(panel);
         const std::size_t rows = visibleRows(combo, bodies.size());
         const std::size_t maxFirst = bodies.size() - rows;
@@ -100,6 +111,12 @@ namespace solar {
         }
         if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             return;
+        if (CheckCollisionPointRec(mouse, hideBounds(panel))) {
+            hidden_ = true;
+            open_ = false;
+            draggingCloudOpacity_ = false;
+            return;
+        }
         if (CheckCollisionPointRec(mouse, combo)) {
             open_ = !open_;
             return;
@@ -127,13 +144,24 @@ namespace solar {
             camera.resetToBody(*selected->body, sunPositionKm);
         if (earthNearest && CheckCollisionPointRec(mouse, lightsBounds(panel)))
             scene.setEarthLights(!scene.earthLights());
-        if (earthNearest && CheckCollisionPointRec(mouse, cloudsBounds(panel)))
+        if (earthNearest && scene.cloudsEnabled() && CheckCollisionPointRec(mouse, refreshCloudsBounds(panel))) {
+            scene.refreshClouds();
+            return;
+        }
+        if (earthNearest && CheckCollisionPointRec(mouse, cloudsBounds(panel, scene.cloudsEnabled())))
             scene.setCloudsEnabled(!scene.cloudsEnabled());
         if (CheckCollisionPointRec(mouse, shadowBounds(panel, earthNearest, scene.cloudsEnabled())))
             scene.setShadowsEnabled(!scene.shadowsEnabled());
     }
 
     void ControlsPanel::draw(const Scene& scene, const Camera& camera) const {
+        if (hidden_) {
+            const Rectangle button = revealBounds();
+            const bool hovered = CheckCollisionPointRec(GetMousePosition(), button);
+            DrawRectangleRounded(button, 0.25f, 6, hovered ? Color{58, 79, 99, 255} : Color{24, 36, 50, 225});
+            label(font_, "Controls", button.x + 12, button.y + 6, 15, Color{225, 233, 240, 255});
+            return;
+        }
         const auto bodies = scene.bodies();
         const bool earthNearest = earthIsNearest(bodies, camera);
         const Rectangle panel = panelBounds(earthNearest, scene.cloudsEnabled());
@@ -142,6 +170,10 @@ namespace solar {
         const BodyUpdate* selected = selectedBody(bodies, camera);
         DrawRectangleRounded(panel, 0.08f, 8, Color{12, 20, 32, 225});
         label(font_, "Fly to", panel.x + 14, panel.y + 14, 16, Color{167, 184, 200, 255});
+        const Rectangle hide = hideBounds(panel);
+        const bool hideHovered = CheckCollisionPointRec(mouse, hide);
+        DrawRectangleRounded(hide, 0.25f, 6, hideHovered ? Color{58, 79, 99, 255} : Color{35, 48, 64, 255});
+        label(font_, "Hide", hide.x + 8, hide.y + 5, 14, Color{225, 233, 240, 255});
         const bool comboHovered = CheckCollisionPointRec(mouse, combo);
         DrawRectangleRounded(combo, 0.2f, 6, comboHovered || open_ ? Color{54, 72, 90, 255} : Color{35, 48, 64, 255});
         label(font_, selected ? bodyName(selected->ephemerisBody) : "Choose a body", combo.x + 10, combo.y + 7, 17,
@@ -166,16 +198,20 @@ namespace solar {
             label(font_, scene.earthLights() ? "ON" : "OFF", lights.x + lights.width - 38, lights.y + 7, 15,
                   scene.earthLights() ? Color{153, 211, 185, 255} : Color{157, 171, 184, 255});
 
-            const Rectangle clouds = cloudsBounds(panel);
+            const Rectangle clouds = cloudsBounds(panel, scene.cloudsEnabled());
             const bool cloudsHovered = !open_ && CheckCollisionPointRec(mouse, clouds);
             DrawRectangleRounded(clouds, 0.2f, 6, cloudsHovered ? Color{58, 79, 99, 255} : Color{35, 48, 64, 255});
             label(font_, "Clouds", clouds.x + 10, clouds.y + 7, 16, Color{225, 233, 240, 255});
-            const char* cloudStatus = scene.cloudsLoading() ? "Loading" : scene.cloudsFailed() && scene.cloudsEnabled()
-                                          ? "Failed" : scene.cloudsEnabled() ? "ON" : "OFF";
-            label(font_, cloudStatus, clouds.x + clouds.width - (scene.cloudsLoading() ? 70 : scene.cloudsFailed() && scene.cloudsEnabled() ? 55 : 38), clouds.y + 7, 15,
-                  scene.cloudsFailed() && scene.cloudsEnabled() ? Color{235, 168, 145, 255} : Color{153, 211, 185, 255});
+            label(font_, scene.cloudsEnabled() ? "ON" : "OFF", clouds.x + clouds.width - 38, clouds.y + 7, 15,
+                  scene.cloudsEnabled() ? Color{153, 211, 185, 255} : Color{157, 171, 184, 255});
 
             if (scene.cloudsEnabled()) {
+                const Rectangle refresh = refreshCloudsBounds(panel);
+                const bool refreshHovered = !open_ && !scene.cloudsLoading() && CheckCollisionPointRec(mouse, refresh);
+                DrawRectangleRounded(refresh, 0.2f, 6, refreshHovered ? Color{58, 79, 99, 255} : Color{35, 48, 64, 255});
+                const char* status = scene.cloudsLoading() ? "Loading" : scene.cloudsFailed() ? "Retry" : "Refresh";
+                label(font_, status, refresh.x + 6, refresh.y + 9, 13,
+                      scene.cloudsFailed() ? Color{235, 168, 145, 255} : Color{225, 233, 240, 255});
                 const Rectangle area = opacityBounds(panel);
                 const Rectangle track = opacityTrack(panel);
                 const float knobX = track.x + track.width * scene.cloudOpacity();

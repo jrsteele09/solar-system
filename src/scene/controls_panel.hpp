@@ -17,6 +17,7 @@ namespace solar {
       private:
         Font font_{};
         bool open_ = false;
+        bool hidden_ = false;
         bool draggingCloudOpacity_ = false;
         std::size_t listFirst_ = 0;
     };

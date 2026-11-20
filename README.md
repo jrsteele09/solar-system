@@ -42,7 +42,7 @@ catalogue directions (epoch 1991.25), without proper motion or parallax.
 
 When Earth is the nearest body, the Clouds button fetches the latest cloud map
 from [Live Cloud Maps](https://clouds.matteason.co.uk/images/2048x1024/clouds.jpg).
-The download runs in the background; if it fails, switch clouds off and on to retry. A
+The download runs in the background; use Refresh to request an update or retry a failure. A
 previously loaded map remains available for the current session.
 Contains modified EUMETSAT data.
 
@@ -52,7 +52,8 @@ It fills areas without image coverage and alters some observed detail; it is not
 a scientific map of Pluto's unobserved terrain.
 
 Use the mouse wheel or arrow keys to scroll the destination list when it is too
-tall for the window. The outer planets use DE442s system barycentres as an
+tall for the window. Use Hide and Controls to collapse and reopen the panel.
+The outer planets use DE442s system barycentres as an
 approximation to the planets' centres. Their axial tilts and rotation rates are
 based on IAU models; their starting surface longitudes are illustrative.
 
