@@ -6,7 +6,8 @@
 namespace solar {
     class Earth : public CelestialBody {
       public:
-        using CelestialBody::CelestialBody;
+        Earth(const Mesh& mesh, double radius, glm::dvec3 position, const SurfaceTexture& surface,
+              const Sunlight& sunlight, const char* nightTexturePath);
 
         EarthClouds& clouds() { return clouds_; }
         const EarthClouds& clouds() const { return clouds_; }
@@ -20,6 +21,7 @@ namespace solar {
         void prepareLighting() const override;
 
       private:
+        SurfaceTexture nightTexture_;
         EarthClouds clouds_;
         bool lightsEnabled_ = true;
     };

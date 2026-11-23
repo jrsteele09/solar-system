@@ -48,21 +48,14 @@ namespace solar {
 
         Body id() const { return id_; }
 
-        // The body owns the textures used by its model and its astronomical update information.
+        // The body owns its surface texture and astronomical update information.
         void configure(Body id, std::function<glm::mat4(double, double)> orientation,
-                       std::unique_ptr<SurfaceTexture> surface = {}, std::unique_ptr<SurfaceTexture> night = {},
-                       std::unique_ptr<SurfaceTexture> rings = {});
+                       std::unique_ptr<SurfaceTexture> surface = {});
 
         virtual void update(const Ephemeris& ephemeris, double utc, double elapsedSeconds, glm::dvec3 sunPositionKm);
 
         // Set where the body is and which way it faces.
         void update(glm::dvec3 positionKm, const glm::mat4& orientation);
-
-        // Night texture - used for Earth Lights
-        void setNightTexture(const SurfaceTexture& texture);
-
-        // Cloud texture - used for Earth Clouds
-        void setCloudTexture(Texture2D texture);
 
         // Draw the body's surface at its position relative to the camera.
         void draw(Vector3 position) const;
@@ -74,14 +67,13 @@ namespace solar {
         virtual void drawEffects(const Camera& camera, float elapsedSeconds, int screenHeight) const;
 
       protected:
+        void setMaterialTexture(int map, Texture2D texture);
         // Each body configures its own use of the shared lighting shader before drawing.
         virtual void prepareLighting() const;
         const Sunlight* sunlight_;
 
       private:
         std::unique_ptr<SurfaceTexture> surface_;
-        std::unique_ptr<SurfaceTexture> night_;
-        std::unique_ptr<SurfaceTexture> rings_;
         Body id_ = Body::Sun;
         std::function<glm::mat4(double, double)> orientationFunction_;
         Model model_{};

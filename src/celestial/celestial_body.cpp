@@ -98,15 +98,10 @@ namespace solar {
     }
 
     void CelestialBody::configure(Body id, std::function<glm::mat4(double, double)> orientation,
-                                  std::unique_ptr<SurfaceTexture> surface, std::unique_ptr<SurfaceTexture> night,
-                                  std::unique_ptr<SurfaceTexture> rings) {
+                                  std::unique_ptr<SurfaceTexture> surface) {
         id_ = id;
         orientationFunction_ = std::move(orientation);
         surface_ = std::move(surface);
-        night_ = std::move(night);
-        rings_ = std::move(rings);
-        if (night_)
-            setNightTexture(*night_);
     }
 
     void CelestialBody::update(const Ephemeris& ephemeris, double utc, double elapsedSeconds,
@@ -115,12 +110,8 @@ namespace solar {
         update(sunPositionKm + ephemeris.position(id_, utc), rotation);
     }
 
-    void CelestialBody::setNightTexture(const SurfaceTexture& texture) {
-        SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_EMISSION, texture.texture());
-    }
-
-    void CelestialBody::setCloudTexture(Texture2D texture) {
-        SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_OCCLUSION, texture);
+    void CelestialBody::setMaterialTexture(int map, Texture2D texture) {
+        SetMaterialTexture(&model_.materials[0], map, texture);
     }
 
     void CelestialBody::prepareLighting() const {

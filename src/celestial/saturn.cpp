@@ -45,10 +45,10 @@ namespace solar {
     }
 
     Saturn::Saturn(const Mesh& sphere, double radius, glm::dvec3 position, const SurfaceTexture& texture,
-                   const SurfaceTexture& ringTexture, const Sunlight& sunlight)
-        : CelestialBody(sphere, radius, position, &texture, &sunlight) {
+                   const char* ringTexturePath, const Sunlight& sunlight)
+        : CelestialBody(sphere, radius, position, &texture, &sunlight), ringTexture_(ringTexturePath) {
         rings_ = LoadModelFromMesh(createRingMesh());
-        SetMaterialTexture(&rings_.materials[0], MATERIAL_MAP_ALBEDO, ringTexture.texture());
+        SetMaterialTexture(&rings_.materials[0], MATERIAL_MAP_ALBEDO, ringTexture_.texture());
         // Match the Odin viewer: the ring profile is drawn with the unlit default shader.
     }
 

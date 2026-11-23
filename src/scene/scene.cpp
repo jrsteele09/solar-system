@@ -25,30 +25,23 @@ namespace solar {
     static std::unique_ptr<CelestialBody> makeBody(Body id, double radiusKm, const char* texturePath, const Mesh& mesh,
                                                    const Ephemeris& ephemeris, const Sunlight& sunlight, double utc,
                                                    double kmPerSceneUnit, glm::dvec3 sunPositionKm,
-                                                   const char* nightPath = nullptr, const char* ringPath = nullptr,
                                                    std::function<glm::mat4(double, double)> orientation = {}) {
 
         auto surface = std::make_unique<SurfaceTexture>(texturePath);
-        std::unique_ptr<SurfaceTexture> night;
-        std::unique_ptr<SurfaceTexture> rings;
         std::unique_ptr<CelestialBody> result;
         const double radius = radiusKm / kmPerSceneUnit;
         const glm::dvec3 position = sunPositionKm + ephemeris.position(id, utc);
         if (id == Body::Earth) {
-            result = std::make_unique<Earth>(mesh, radius, position, surface.get(), &sunlight);
+            result = std::make_unique<Earth>(mesh, radius, position, *surface, sunlight, SOLAR_EARTH_NIGHT_TEXTURE_PATH);
         } else if (id == Body::SaturnSystem) {
-            rings = std::make_unique<SurfaceTexture>(ringPath);
-            result = std::make_unique<Saturn>(mesh, radius, position, *surface, *rings, sunlight);
+            result = std::make_unique<Saturn>(mesh, radius, position, *surface, SOLAR_SATURN_RING_TEXTURE_PATH, sunlight);
         } else {
             result = std::make_unique<CelestialBody>(mesh, radius, position, surface.get(), &sunlight);
-        }
-        if (nightPath) {
-            night = std::make_unique<SurfaceTexture>(nightPath);
         }
         if (!orientation) {
             orientation = [id](double, double elapsed) { return planetOrientation(id, elapsed); };
         }
-        result->configure(id, std::move(orientation), std::move(surface), std::move(night), std::move(rings));
+        result->configure(id, std::move(orientation), std::move(surface));
         return result;
     }
 
@@ -70,21 +63,20 @@ namespace solar {
         const Mesh planetSphereMesh = Mesh::createSphere(1.0f, 96, 160);
 
         // Lambda to add a body to the scene
-        auto add = [&](Body id, double radius, const char* texture, const char* night = nullptr,
-                       const char* rings = nullptr, std::function<glm::mat4(double, double)> orientation = {}) {
+        auto add = [&](Body id, double radius, const char* texture,
+                       std::function<glm::mat4(double, double)> orientation = {}) {
             bodies_.push_back(makeBody(id, radius, texture, planetSphereMesh, ephemeris_, sunlight_, utcSeconds,
-                                       kmPerSceneUnit, sunPositionKm_, night, rings, std::move(orientation)));
+                                       kmPerSceneUnit, sunPositionKm_, std::move(orientation)));
         };
 
         // Add the planets and the Moon
         add(Body::Mercury, mercuryRadiusKm, SOLAR_MERCURY_TEXTURE_PATH);
         add(Body::Venus, venusRadiusKm, SOLAR_VENUS_TEXTURE_PATH);
-        add(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH, SOLAR_EARTH_NIGHT_TEXTURE_PATH, nullptr,
-            earthOrientation);
-        add(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH, nullptr, nullptr, moonOrientation);
+        add(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH, earthOrientation);
+        add(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH, moonOrientation);
         add(Body::MarsSystem, marsRadiusKm, SOLAR_MARS_TEXTURE_PATH);
         add(Body::JupiterSystem, jupiterRadiusKm, SOLAR_JUPITER_TEXTURE_PATH);
-        add(Body::SaturnSystem, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH, nullptr, SOLAR_SATURN_RING_TEXTURE_PATH);
+        add(Body::SaturnSystem, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH);
         add(Body::UranusSystem, uranusRadiusKm, SOLAR_URANUS_TEXTURE_PATH);
         add(Body::NeptuneSystem, neptuneRadiusKm, SOLAR_NEPTUNE_TEXTURE_PATH);
         add(Body::PlutoSystem, plutoRadiusKm, SOLAR_PLUTO_TEXTURE_PATH);
