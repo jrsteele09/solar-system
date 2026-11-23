@@ -60,7 +60,6 @@ flowchart TD
     App[Application and main loop] --> Scene
     App --> Controls[Controls panel]
     App --> Camera
-    App --> Ephemeris[Ephemeris reader]
     Controls --> Scene
     Controls --> Camera
     Camera --> Scene

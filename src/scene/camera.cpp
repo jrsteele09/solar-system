@@ -11,50 +11,48 @@
 #include <stdexcept>
 
 namespace solar {
-    namespace {
-        // Construct a perspective ray without unprojecting the distant far plane.
-        // The solar-system-sized depth range makes the usual float matrix inversion unstable.
-        glm::dvec3 mouseRayDirection(const Camera3D& camera, Vector2 mouse, int width, int height) {
-            const glm::dvec3 forward = glm::normalize(glm::dvec3{camera.target.x, camera.target.y, camera.target.z});
-            const glm::dvec3 right =
-                glm::normalize(glm::cross(forward, glm::dvec3{camera.up.x, camera.up.y, camera.up.z}));
-            const glm::dvec3 up = glm::cross(right, forward);
-            const double halfHeight = std::tan(camera.fovy * std::numbers::pi_v<double> / 360.0);
-            const double x = (2.0 * mouse.x / width - 1.0) * halfHeight * width / height;
-            const double y = (1.0 - 2.0 * mouse.y / height) * halfHeight;
-            return glm::normalize(forward + right * x + up * y);
-        }
+    // Construct a perspective ray without unprojecting the distant far plane.
+    // The solar-system-sized depth range makes the usual float matrix inversion unstable.
+    static glm::dvec3 mouseRayDirection(const Camera3D& camera, Vector2 mouse, int width, int height) {
+        const glm::dvec3 forward = glm::normalize(glm::dvec3{camera.target.x, camera.target.y, camera.target.z});
+        const glm::dvec3 right =
+            glm::normalize(glm::cross(forward, glm::dvec3{camera.up.x, camera.up.y, camera.up.z}));
+        const glm::dvec3 up = glm::cross(right, forward);
+        const double halfHeight = std::tan(camera.fovy * std::numbers::pi_v<double> / 360.0);
+        const double x = (2.0 * mouse.x / width - 1.0) * halfHeight * width / height;
+        const double y = (1.0 - 2.0 * mouse.y / height) * halfHeight;
+        return glm::normalize(forward + right * x + up * y);
+    }
 
-        double raySphereDistance(glm::dvec3 origin, glm::dvec3 direction, glm::dvec3 centre, double radius) {
-            const glm::dvec3 toCentre = centre - origin;
-            const double projection = glm::dot(toCentre, direction);
-            // The cross product avoids subtracting two enormous squared distances.
-            const glm::dvec3 perpendicular = glm::cross(toCentre, direction);
-            const double inside = radius * radius - glm::dot(perpendicular, perpendicular);
-            if (inside < 0.0)
-                return std::numeric_limits<double>::infinity();
-            const double halfChord = std::sqrt(inside);
-            const double nearHit = projection - halfChord;
-            const double farHit = projection + halfChord;
-            return nearHit >= 0.0 ? nearHit : farHit >= 0.0 ? farHit : std::numeric_limits<double>::infinity();
-        }
+    static double raySphereDistance(glm::dvec3 origin, glm::dvec3 direction, glm::dvec3 centre, double radius) {
+        const glm::dvec3 toCentre = centre - origin;
+        const double projection = glm::dot(toCentre, direction);
+        // The cross product avoids subtracting two enormous squared distances.
+        const glm::dvec3 perpendicular = glm::cross(toCentre, direction);
+        const double inside = radius * radius - glm::dot(perpendicular, perpendicular);
+        if (inside < 0.0)
+            return std::numeric_limits<double>::infinity();
+        const double halfChord = std::sqrt(inside);
+        const double nearHit = projection - halfChord;
+        const double farHit = projection + halfChord;
+        return nearHit >= 0.0 ? nearHit : farHit >= 0.0 ? farHit : std::numeric_limits<double>::infinity();
+    }
 
-        // Keep the camera's up direction perpendicular to its view, including near the poles.
-        void alignCameraUp(Camera3D& camera) {
-            const glm::dvec3 view{camera.target.x, camera.target.y, camera.target.z};
-            if (glm::length(view) < 1e-12)
-                return;
-            const glm::dvec3 forward = glm::normalize(view);
-            glm::dvec3 up{camera.up.x, camera.up.y, camera.up.z};
-            up -= forward * glm::dot(up, forward);
-            if (glm::length(up) < 1e-6) {
-                const glm::dvec3 fallback = std::abs(forward.y) < 0.9 ? glm::dvec3{0, 1, 0} : glm::dvec3{1, 0, 0};
-                up = fallback - forward * glm::dot(fallback, forward);
-            }
-            up = glm::normalize(up);
-            camera.up = {static_cast<float>(up.x), static_cast<float>(up.y), static_cast<float>(up.z)};
+    // Keep the camera's up direction perpendicular to its view, including near the poles.
+    static void alignCameraUp(Camera3D& camera) {
+        const glm::dvec3 view{camera.target.x, camera.target.y, camera.target.z};
+        if (glm::length(view) < 1e-12)
+            return;
+        const glm::dvec3 forward = glm::normalize(view);
+        glm::dvec3 up{camera.up.x, camera.up.y, camera.up.z};
+        up -= forward * glm::dot(up, forward);
+        if (glm::length(up) < 1e-6) {
+            const glm::dvec3 fallback = std::abs(forward.y) < 0.9 ? glm::dvec3{0, 1, 0} : glm::dvec3{1, 0, 0};
+            up = fallback - forward * glm::dot(fallback, forward);
         }
-    } // namespace
+        up = glm::normalize(up);
+        camera.up = {static_cast<float>(up.x), static_cast<float>(up.y), static_cast<float>(up.z)};
+    }
 
     double limitCameraMovement(glm::dvec3 positionKm, glm::dvec3 direction, double distanceKm, glm::dvec3 centreKm,
                                double radiusKm) {

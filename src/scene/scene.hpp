@@ -17,12 +17,12 @@ namespace solar {
     // Scene owns its bodies, textures and lighting.
     class Scene {
       public:
-        Scene(const Ephemeris& ephemeris, double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm);
+        Scene(double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm);
 
         const CelestialBody& getCelestialBody(Body id) const;
         CelestialBody& getCelestialBody(Body id);
 
-        void update(const Ephemeris& ephemeris, double utc, double elapsedSeconds);
+        void update(double utc, double elapsedSeconds);
         void draw(const Camera& camera, float elapsedSeconds) const;
         std::span<const std::unique_ptr<CelestialBody>> bodies() const { return bodies_; }
 
@@ -30,6 +30,7 @@ namespace solar {
         void setShadowsEnabled(bool enabled) { shadowsEnabled_ = enabled; }
 
       private:
+        Ephemeris ephemeris_;
         Sunlight sunlight_;
         SunGlow sunGlow_;
         glm::dvec3 sunPositionKm_;

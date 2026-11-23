@@ -10,11 +10,9 @@
 #include <stdexcept>
 
 namespace solar {
-    namespace {
-        constexpr float haloScale = 4.0f;
-        constexpr float minimumDiameterPixels = 18.0f;
-        constexpr float haloWidth = 2.7f;
-    } // namespace
+    constexpr float haloScale = 4.0f;
+    constexpr float minimumDiameterPixels = 18.0f;
+    constexpr float haloWidth = 2.7f;
 
     SunGlow::SunGlow(const char* fragmentPath) {
         shader_ = LoadShader(nullptr, fragmentPath);

@@ -8,12 +8,6 @@
 #include <numbers>
 
 namespace solar {
-    using detail::arcseconds;
-    using detail::j2000UnixSeconds;
-    using detail::pi;
-    using detail::secondsPerDay;
-    using detail::terrestrialTime;
-    using detail::toScene;
 
     // IAU 2006 precession and Greenwich mean sidereal time, adapted from ERFA;
     // see licenses/erfa.txt. UTC approximates UT1; nutation and polar motion are omitted.
@@ -84,7 +78,10 @@ namespace solar {
 
     glm::mat4 planetOrientation(Body body, double elapsedSeconds) {
         // IAU pole directions and signed sidereal rotation rates, from NAIF pck00011.tpc.
-        struct Spin { Body body; double poleRa, poleDec, degreesPerDay; };
+        struct Spin {
+            Body body;
+            double poleRa, poleDec, degreesPerDay;
+        };
         constexpr Spin spins[] = {
             {Body::Mercury, 281.0103, 61.4155, 6.1385108},
             {Body::Venus, 272.76, 67.16, -1.4813688},
@@ -96,19 +93,20 @@ namespace solar {
             {Body::PlutoSystem, 132.993, -6.163, 56.3625225},
         };
         for (const auto& spin : spins) {
-            if (spin.body != body) continue;
+            if (spin.body != body)
+                continue;
             constexpr double radiansPerDegree = std::numbers::pi_v<double> / 180.0;
             const double ra = spin.poleRa * radiansPerDegree;
             const double dec = spin.poleDec * radiansPerDegree;
-            const glm::dvec3 pole = detail::toScene({std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra),
-                                                     std::sin(dec)});
+            const glm::dvec3 pole =
+                toScene({std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra), std::sin(dec)});
             const glm::dvec3 axis = glm::cross(glm::dvec3{0, 1, 0}, pole);
             const double axisLength = glm::length(axis);
             const double tilt = std::atan2(axisLength, pole.y);
             const glm::dvec3 tiltAxis = axisLength > 1e-6 ? axis / axisLength : glm::dvec3{1, 0, 0};
             const double periodSeconds = secondsPerDay * 360.0 / spin.degreesPerDay;
-            const double angle = std::fmod(elapsedSeconds, std::abs(periodSeconds)) *
-                                 (2.0 * std::numbers::pi_v<double>) / periodSeconds;
+            const double angle =
+                std::fmod(elapsedSeconds, std::abs(periodSeconds)) * (2.0 * std::numbers::pi_v<double>) / periodSeconds;
             const glm::dmat4 identity{1.0};
             return glm::mat4(glm::rotate(identity, tilt, tiltAxis) * glm::rotate(identity, angle, glm::dvec3{0, 1, 0}));
         }

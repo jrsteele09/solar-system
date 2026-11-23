@@ -4,7 +4,7 @@
 #include <glm/vec3.hpp>
 #include <numbers>
 
-namespace solar::detail {
+namespace solar {
     constexpr double pi = std::numbers::pi_v<double>;
     constexpr double arcseconds = pi / (180.0 * 3600.0);
 
@@ -15,4 +15,4 @@ namespace solar::detail {
                 -(std::cos(obliquity) * v.y + std::sin(obliquity) * v.z)};
     }
 
-} // namespace solar::detail
+} // namespace solar

@@ -9,52 +9,50 @@
 #include <stdexcept>
 
 namespace solar {
-    namespace {
-        // Mean radii in kilometres. DE442s uses system barycentres for the outer planets.
-        constexpr double sunRadiusKm = 695700.0;
-        constexpr double mercuryRadiusKm = 2439.4;
-        constexpr double venusRadiusKm = 6051.8;
-        constexpr double earthRadiusKm = 6371.0084;
-        constexpr double moonRadiusKm = 1737.4;
-        constexpr double marsRadiusKm = 3389.5;
-        constexpr double jupiterRadiusKm = 69911.0;
-        constexpr double saturnRadiusKm = 58232.0;
-        constexpr double uranusRadiusKm = 25362.0;
-        constexpr double neptuneRadiusKm = 24622.0;
-        constexpr double plutoRadiusKm = 1188.3;
+    // Mean radii in kilometres. DE442s uses system barycentres for the outer planets.
+    constexpr double sunRadiusKm = 695700.0;
+    constexpr double mercuryRadiusKm = 2439.4;
+    constexpr double venusRadiusKm = 6051.8;
+    constexpr double earthRadiusKm = 6371.0084;
+    constexpr double moonRadiusKm = 1737.4;
+    constexpr double marsRadiusKm = 3389.5;
+    constexpr double jupiterRadiusKm = 69911.0;
+    constexpr double saturnRadiusKm = 58232.0;
+    constexpr double uranusRadiusKm = 25362.0;
+    constexpr double neptuneRadiusKm = 24622.0;
+    constexpr double plutoRadiusKm = 1188.3;
 
-        std::unique_ptr<CelestialBody> makeBody(Body id, double radiusKm, const char* texturePath, const Mesh& mesh,
-                                                const Ephemeris& ephemeris, const Sunlight& sunlight, double utc,
-                                                double kmPerSceneUnit, glm::dvec3 sunPositionKm,
-                                                const char* nightPath = nullptr, const char* ringPath = nullptr,
-                                                std::function<glm::mat4(double, double)> orientation = {}) {
+    static std::unique_ptr<CelestialBody> makeBody(Body id, double radiusKm, const char* texturePath, const Mesh& mesh,
+                                            const Ephemeris& ephemeris, const Sunlight& sunlight, double utc,
+                                            double kmPerSceneUnit, glm::dvec3 sunPositionKm,
+                                            const char* nightPath = nullptr, const char* ringPath = nullptr,
+                                            std::function<glm::mat4(double, double)> orientation = {}) {
 
-            auto surface = std::make_unique<SurfaceTexture>(texturePath);
-            std::unique_ptr<SurfaceTexture> night;
-            std::unique_ptr<SurfaceTexture> rings;
-            std::unique_ptr<CelestialBody> result;
-            const double radius = radiusKm / kmPerSceneUnit;
-            const glm::dvec3 position = sunPositionKm + ephemeris.position(id, utc);
-            if (id == Body::Earth) {
-                result = std::make_unique<Earth>(mesh, radius, position, surface.get(), &sunlight);
-            } else if (ringPath) {
-                rings = std::make_unique<SurfaceTexture>(ringPath);
-                result = std::make_unique<Saturn>(mesh, radius, position, *surface, *rings, sunlight);
-            } else {
-                result = std::make_unique<CelestialBody>(mesh, radius, position, surface.get(), &sunlight);
-            }
-            if (nightPath) {
-                night = std::make_unique<SurfaceTexture>(nightPath);
-            }
-            if (!orientation)
-                orientation = [id](double, double elapsed) { return planetOrientation(id, elapsed); };
-            result->configure(id, std::move(orientation), std::move(surface), std::move(night), std::move(rings));
-            return result;
+        auto surface = std::make_unique<SurfaceTexture>(texturePath);
+        std::unique_ptr<SurfaceTexture> night;
+        std::unique_ptr<SurfaceTexture> rings;
+        std::unique_ptr<CelestialBody> result;
+        const double radius = radiusKm / kmPerSceneUnit;
+        const glm::dvec3 position = sunPositionKm + ephemeris.position(id, utc);
+        if (id == Body::Earth) {
+            result = std::make_unique<Earth>(mesh, radius, position, surface.get(), &sunlight);
+        } else if (ringPath) {
+            rings = std::make_unique<SurfaceTexture>(ringPath);
+            result = std::make_unique<Saturn>(mesh, radius, position, *surface, *rings, sunlight);
+        } else {
+            result = std::make_unique<CelestialBody>(mesh, radius, position, surface.get(), &sunlight);
         }
-    } // namespace
+        if (nightPath) {
+            night = std::make_unique<SurfaceTexture>(nightPath);
+        }
+        if (!orientation)
+            orientation = [id](double, double elapsed) { return planetOrientation(id, elapsed); };
+        result->configure(id, std::move(orientation), std::move(surface), std::move(night), std::move(rings));
+        return result;
+    }
 
-    Scene::Scene(const Ephemeris& ephemeris, double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm)
-        : sunlight_(SOLAR_SUNLIGHT_VERTEX_PATH, SOLAR_SUNLIGHT_FRAGMENT_PATH), sunGlow_(SOLAR_SUN_GLOW_PATH),
+    Scene::Scene(double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm)
+        : ephemeris_(SOLAR_EPHEMERIS_PATH), sunlight_(SOLAR_SUNLIGHT_VERTEX_PATH, SOLAR_SUNLIGHT_FRAGMENT_PATH), sunGlow_(SOLAR_SUN_GLOW_PATH),
           sunPositionKm_(sunPositionKm), stars_(SOLAR_STAR_CATALOGUE_PATH) {
 
         // Make the Sun
@@ -73,7 +71,7 @@ namespace solar {
         // Lambda to add a body to the scene
         auto add = [&](Body id, double radius, const char* texture, const char* night = nullptr,
                        const char* rings = nullptr, std::function<glm::mat4(double, double)> orientation = {}) {
-            bodies_.push_back(makeBody(id, radius, texture, planetSphereMesh, ephemeris, sunlight_, utcSeconds,
+            bodies_.push_back(makeBody(id, radius, texture, planetSphereMesh, ephemeris_, sunlight_, utcSeconds,
                                        kmPerSceneUnit, sunPositionKm_, night, rings, std::move(orientation)));
         };
 
@@ -107,9 +105,9 @@ namespace solar {
         return **entry;
     }
 
-    void Scene::update(const Ephemeris& ephemeris, double utc, double elapsedSeconds) {
+    void Scene::update(double utc, double elapsedSeconds) {
         for (const auto& body : bodies_)
-            body->update(ephemeris, utc, elapsedSeconds, sunPositionKm_);
+            body->update(ephemeris_, utc, elapsedSeconds, sunPositionKm_);
     }
 
     void Scene::draw(const Camera& camera, float elapsedSeconds) const {

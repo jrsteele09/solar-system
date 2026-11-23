@@ -162,11 +162,11 @@ namespace solar {
         if (!std::isfinite(seconds))
             throw std::invalid_argument("Invalid ephemeris time");
         // Subtract the Sun’s position to put it at the origin.
-        return detail::toScene(barycentricPosition(static_cast<int>(body), seconds) - barycentricPosition(10, seconds));
+        return toScene(barycentricPosition(static_cast<int>(body), seconds) - barycentricPosition(10, seconds));
     }
 
     glm::dvec3 Ephemeris::position(Body body, double utcSeconds) const {
-        return positionAtTdb(body, detail::ephemerisTime(utcSeconds));
+        return positionAtTdb(body, ephemerisTime(utcSeconds));
     }
 
 } // namespace solar

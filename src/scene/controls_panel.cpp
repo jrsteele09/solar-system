@@ -6,72 +6,70 @@
 #include <raylib.h>
 
 namespace solar {
-    namespace {
-        constexpr float panelWidth = 196.0f;
-        constexpr float margin = 18.0f;
-        constexpr float rowHeight = 32.0f;
+    constexpr float panelWidth = 196.0f;
+    constexpr float margin = 18.0f;
+    constexpr float rowHeight = 32.0f;
 
-        Rectangle panelBounds(bool earthNearest, bool showOpacity) {
-            return {GetScreenWidth() - panelWidth - margin, margin, panelWidth,
-                    earthNearest ? (showOpacity ? 322.0f : 278.0f) : 190.0f};
-        }
-        Rectangle comboBounds(Rectangle panel) { return {panel.x + 12, panel.y + 42, panel.width - 24, 34}; }
-        Rectangle hideBounds(Rectangle panel) { return {panel.x + panel.width - 58, panel.y + 9, 46, 25}; }
-        Rectangle revealBounds() { return {GetScreenWidth() - margin - 90, margin, 90, 28}; }
-        Rectangle resetBounds(Rectangle panel) { return {panel.x + 12, panel.y + 98, panel.width - 24, 32}; }
-        Rectangle lightsBounds(Rectangle panel) { return {panel.x + 12, panel.y + 142, panel.width - 24, 32}; }
-        Rectangle cloudsBounds(Rectangle panel, bool enabled) {
-            return {panel.x + 12, panel.y + 186, enabled ? 100.0f : panel.width - 24, 32};
-        }
-        Rectangle refreshCloudsBounds(Rectangle panel) { return {panel.x + 118, panel.y + 186, panel.width - 130, 32}; }
-        Rectangle opacityBounds(Rectangle panel) { return {panel.x + 12, panel.y + 222, panel.width - 24, 44}; }
-        Rectangle opacityTrack(Rectangle panel) { return {panel.x + 20, panel.y + 251, panel.width - 40, 4}; }
-        Rectangle shadowBounds(Rectangle panel, bool earthNearest, bool showOpacity) {
-            return {panel.x + 12, panel.y + (earthNearest ? (showOpacity ? 274 : 230) : 142), panel.width - 24, 32};
-        }
+    static Rectangle panelBounds(bool earthNearest, bool showOpacity) {
+        return {GetScreenWidth() - panelWidth - margin, margin, panelWidth,
+                earthNearest ? (showOpacity ? 322.0f : 278.0f) : 190.0f};
+    }
+    static Rectangle comboBounds(Rectangle panel) { return {panel.x + 12, panel.y + 42, panel.width - 24, 34}; }
+    static Rectangle hideBounds(Rectangle panel) { return {panel.x + panel.width - 58, panel.y + 9, 46, 25}; }
+    static Rectangle revealBounds() { return {GetScreenWidth() - margin - 90, margin, 90, 28}; }
+    static Rectangle resetBounds(Rectangle panel) { return {panel.x + 12, panel.y + 98, panel.width - 24, 32}; }
+    static Rectangle lightsBounds(Rectangle panel) { return {panel.x + 12, panel.y + 142, panel.width - 24, 32}; }
+    static Rectangle cloudsBounds(Rectangle panel, bool enabled) {
+        return {panel.x + 12, panel.y + 186, enabled ? 100.0f : panel.width - 24, 32};
+    }
+    static Rectangle refreshCloudsBounds(Rectangle panel) { return {panel.x + 118, panel.y + 186, panel.width - 130, 32}; }
+    static Rectangle opacityBounds(Rectangle panel) { return {panel.x + 12, panel.y + 222, panel.width - 24, 44}; }
+    static Rectangle opacityTrack(Rectangle panel) { return {panel.x + 20, panel.y + 251, panel.width - 40, 4}; }
+    static Rectangle shadowBounds(Rectangle panel, bool earthNearest, bool showOpacity) {
+        return {panel.x + 12, panel.y + (earthNearest ? (showOpacity ? 274 : 230) : 142), panel.width - 24, 32};
+    }
 
-        std::size_t visibleRows(Rectangle combo, std::size_t count) {
-            const float available = GetScreenHeight() - margin - (combo.y + combo.height + 4) - 8;
-            return std::min(count, static_cast<std::size_t>(std::max(1.0f, std::floor(available / rowHeight))));
-        }
+    static std::size_t visibleRows(Rectangle combo, std::size_t count) {
+        const float available = GetScreenHeight() - margin - (combo.y + combo.height + 4) - 8;
+        return std::min(count, static_cast<std::size_t>(std::max(1.0f, std::floor(available / rowHeight))));
+    }
 
-        Rectangle listBounds(Rectangle combo, std::size_t count) {
-            return {combo.x, combo.y + combo.height + 4, combo.width,
-                    static_cast<float>(visibleRows(combo, count)) * rowHeight + 8};
-        }
+    static Rectangle listBounds(Rectangle combo, std::size_t count) {
+        return {combo.x, combo.y + combo.height + 4, combo.width,
+                static_cast<float>(visibleRows(combo, count)) * rowHeight + 8};
+    }
 
-        Rectangle bodyBounds(Rectangle list, std::size_t index) {
-            return {list.x + 4, list.y + 4 + static_cast<float>(index) * rowHeight, list.width - 8, rowHeight};
-        }
+    static Rectangle bodyBounds(Rectangle list, std::size_t index) {
+        return {list.x + 4, list.y + 4 + static_cast<float>(index) * rowHeight, list.width - 8, rowHeight};
+    }
 
-        const CelestialBody* selectedBody(std::span<const std::unique_ptr<CelestialBody>> bodies,
-                                          const Camera& camera) {
-            for (const auto& entry : bodies)
-                if (entry && entry.get() == camera.followedBody())
-                    return entry.get();
-            return nullptr;
-        }
+    static const CelestialBody* selectedBody(std::span<const std::unique_ptr<CelestialBody>> bodies,
+                                      const Camera& camera) {
+        for (const auto& entry : bodies)
+            if (entry && entry.get() == camera.followedBody())
+                return entry.get();
+        return nullptr;
+    }
 
-        bool earthIsNearest(std::span<const std::unique_ptr<CelestialBody>> bodies, const Camera& camera) {
-            const CelestialBody* nearest = nullptr;
-            double nearestDistance = std::numeric_limits<double>::infinity();
-            for (const auto& entry : bodies) {
-                if (!entry)
-                    continue;
-                const Vector3 position = camera.relativeScenePosition(entry->positionKm());
-                const double distance = std::hypot(position.x, position.y, position.z) - entry->radiusSceneUnits();
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearest = entry.get();
-                }
+    static bool earthIsNearest(std::span<const std::unique_ptr<CelestialBody>> bodies, const Camera& camera) {
+        const CelestialBody* nearest = nullptr;
+        double nearestDistance = std::numeric_limits<double>::infinity();
+        for (const auto& entry : bodies) {
+            if (!entry)
+                continue;
+            const Vector3 position = camera.relativeScenePosition(entry->positionKm());
+            const double distance = std::hypot(position.x, position.y, position.z) - entry->radiusSceneUnits();
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = entry.get();
             }
-            return nearest && nearest->id() == Body::Earth;
         }
+        return nearest && nearest->id() == Body::Earth;
+    }
 
-        void label(Font font, const char* text, float x, float y, float size, Color color) {
-            DrawTextEx(font, text, {x, y}, size, 0.2f, color);
-        }
-    } // namespace
+    static void label(Font font, const char* text, float x, float y, float size, Color color) {
+        DrawTextEx(font, text, {x, y}, size, 0.2f, color);
+    }
 
     ControlsPanel::ControlsPanel() : font_(LoadFontEx(SOLAR_UI_FONT_PATH, 36, nullptr, 0)) {
         SetTextureFilter(font_.texture, TEXTURE_FILTER_BILINEAR);

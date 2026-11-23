@@ -14,27 +14,25 @@
 #include <string_view>
 
 namespace solar {
-    namespace {
-        constexpr double radiansPerDegree = std::numbers::pi_v<double> / 180.0;
-        constexpr float faintestMagnitude = 6.5f;
+    constexpr double radiansPerDegree = std::numbers::pi_v<double> / 180.0;
+    constexpr float faintestMagnitude = 6.5f;
 
-        bool number(std::string_view field, double& value) {
-            const std::string text{field};
-            char* end = nullptr;
-            const double parsed = std::strtod(text.c_str(), &end);
-            if (end == text.c_str() || !std::isfinite(parsed))
-                return false;
-            value = parsed;
-            return true;
-        }
+    static bool number(std::string_view field, double& value) {
+        const std::string text{field};
+        char* end = nullptr;
+        const double parsed = std::strtod(text.c_str(), &end);
+        if (end == text.c_str() || !std::isfinite(parsed))
+            return false;
+        value = parsed;
+        return true;
+    }
 
-        Color starColor(double bv) {
-            // Approximate the visible tint from the catalogue's blue-minus-visual colour index.
-            const float warmth = std::clamp(static_cast<float>((bv + 0.2) / 2.0), 0.0f, 1.0f);
-            return {static_cast<unsigned char>(210 + 45 * warmth), static_cast<unsigned char>(225 + 25 * warmth),
-                    static_cast<unsigned char>(255 - 65 * warmth), 255};
-        }
-    } // namespace
+    static Color starColor(double bv) {
+        // Approximate the visible tint from the catalogue's blue-minus-visual colour index.
+        const float warmth = std::clamp(static_cast<float>((bv + 0.2) / 2.0), 0.0f, 1.0f);
+        return {static_cast<unsigned char>(210 + 45 * warmth), static_cast<unsigned char>(225 + 25 * warmth),
+                static_cast<unsigned char>(255 - 65 * warmth), 255};
+    }
 
     StarField::StarField(const char* cataloguePath) {
         std::ifstream file(cataloguePath);
@@ -64,7 +62,7 @@ namespace solar {
             const double delta = dec * radiansPerDegree;
             const glm::dvec3 equatorial{std::cos(delta) * std::cos(alpha), std::cos(delta) * std::sin(alpha),
                                         std::sin(delta)};
-            stars_.push_back({glm::vec3(detail::toScene(equatorial)), static_cast<float>(magnitude), starColor(bv)});
+            stars_.push_back({glm::vec3(toScene(equatorial)), static_cast<float>(magnitude), starColor(bv)});
         }
         if (file.bad() || stars_.size() < 1000)
             throw std::runtime_error{"Invalid Hipparcos star catalogue"};

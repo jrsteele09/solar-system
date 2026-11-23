@@ -9,18 +9,16 @@
 #include <stdexcept>
 
 namespace solar {
-    namespace {
-        float checkedSize(double size) {
-            if (!std::isfinite(size) || size <= 0.0 || size > std::numeric_limits<float>::max()) {
-                throw std::invalid_argument{"CelestialBody size must be positive and finite"};
-            }
-            const float result = static_cast<float>(size);
-            if (result <= 0.0f) {
-                throw std::invalid_argument{"CelestialBody size must be positive and finite"};
-            }
-            return result;
+    static float checkedSize(double size) {
+        if (!std::isfinite(size) || size <= 0.0 || size > std::numeric_limits<float>::max()) {
+            throw std::invalid_argument{"CelestialBody size must be positive and finite"};
         }
-    } // namespace
+        const float result = static_cast<float>(size);
+        if (result <= 0.0f) {
+            throw std::invalid_argument{"CelestialBody size must be positive and finite"};
+        }
+        return result;
+    }
 
     CelestialBody::CelestialBody(const Mesh& mesh, double size, glm::dvec3 positionKm, const SurfaceTexture* texture,
                                  const Sunlight* sunlight, SurfaceStyle style, Color color)
