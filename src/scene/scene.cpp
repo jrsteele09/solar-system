@@ -23,10 +23,10 @@ namespace solar {
     constexpr double plutoRadiusKm = 1188.3;
 
     static std::unique_ptr<CelestialBody> makeBody(Body id, double radiusKm, const char* texturePath, const Mesh& mesh,
-                                            const Ephemeris& ephemeris, const Sunlight& sunlight, double utc,
-                                            double kmPerSceneUnit, glm::dvec3 sunPositionKm,
-                                            const char* nightPath = nullptr, const char* ringPath = nullptr,
-                                            std::function<glm::mat4(double, double)> orientation = {}) {
+                                                   const Ephemeris& ephemeris, const Sunlight& sunlight, double utc,
+                                                   double kmPerSceneUnit, glm::dvec3 sunPositionKm,
+                                                   const char* nightPath = nullptr, const char* ringPath = nullptr,
+                                                   std::function<glm::mat4(double, double)> orientation = {}) {
 
         auto surface = std::make_unique<SurfaceTexture>(texturePath);
         std::unique_ptr<SurfaceTexture> night;
@@ -36,7 +36,7 @@ namespace solar {
         const glm::dvec3 position = sunPositionKm + ephemeris.position(id, utc);
         if (id == Body::Earth) {
             result = std::make_unique<Earth>(mesh, radius, position, surface.get(), &sunlight);
-        } else if (ringPath) {
+        } else if (id == Body::SaturnSystem) {
             rings = std::make_unique<SurfaceTexture>(ringPath);
             result = std::make_unique<Saturn>(mesh, radius, position, *surface, *rings, sunlight);
         } else {
@@ -45,15 +45,16 @@ namespace solar {
         if (nightPath) {
             night = std::make_unique<SurfaceTexture>(nightPath);
         }
-        if (!orientation)
+        if (!orientation) {
             orientation = [id](double, double elapsed) { return planetOrientation(id, elapsed); };
+        }
         result->configure(id, std::move(orientation), std::move(surface), std::move(night), std::move(rings));
         return result;
     }
 
     Scene::Scene(double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm)
-        : ephemeris_(SOLAR_EPHEMERIS_PATH), sunlight_(SOLAR_SUNLIGHT_VERTEX_PATH, SOLAR_SUNLIGHT_FRAGMENT_PATH), sunGlow_(SOLAR_SUN_GLOW_PATH),
-          sunPositionKm_(sunPositionKm), stars_(SOLAR_STAR_CATALOGUE_PATH) {
+        : ephemeris_(SOLAR_EPHEMERIS_PATH), sunlight_(SOLAR_SUNLIGHT_VERTEX_PATH, SOLAR_SUNLIGHT_FRAGMENT_PATH),
+          sunGlow_(SOLAR_SUN_GLOW_PATH), sunPositionKm_(sunPositionKm), stars_(SOLAR_STAR_CATALOGUE_PATH) {
 
         // Make the Sun
         const Mesh sunSphereMesh = Mesh::createSphere(

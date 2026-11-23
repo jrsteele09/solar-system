@@ -52,6 +52,7 @@ namespace solar {
         void configure(Body id, std::function<glm::mat4(double, double)> orientation,
                        std::unique_ptr<SurfaceTexture> surface = {}, std::unique_ptr<SurfaceTexture> night = {},
                        std::unique_ptr<SurfaceTexture> rings = {});
+
         virtual void update(const Ephemeris& ephemeris, double utc, double elapsedSeconds, glm::dvec3 sunPositionKm);
 
         // Set where the body is and which way it faces.

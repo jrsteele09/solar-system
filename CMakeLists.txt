@@ -32,6 +32,7 @@ add_executable(solar_system
     src/scene/camera.cpp
     src/scene/scene.cpp
     src/scene/controls_panel.cpp
+    src/celestial/earth.cpp
     src/celestial/earth_clouds.cpp
     src/celestial/star_field.cpp
     src/mesh/mesh.cpp
