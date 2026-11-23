@@ -29,17 +29,21 @@ namespace solar {
         Rectangle shadowBounds(Rectangle panel, bool earthNearest, bool showOpacity) {
             return {panel.x + 12, panel.y + (earthNearest ? (showOpacity ? 274 : 230) : 142), panel.width - 24, 32};
         }
+
         std::size_t visibleRows(Rectangle combo, std::size_t count) {
             const float available = GetScreenHeight() - margin - (combo.y + combo.height + 4) - 8;
             return std::min(count, static_cast<std::size_t>(std::max(1.0f, std::floor(available / rowHeight))));
         }
+
         Rectangle listBounds(Rectangle combo, std::size_t count) {
             return {combo.x, combo.y + combo.height + 4, combo.width,
                     static_cast<float>(visibleRows(combo, count)) * rowHeight + 8};
         }
+
         Rectangle bodyBounds(Rectangle list, std::size_t index) {
             return {list.x + 4, list.y + 4 + static_cast<float>(index) * rowHeight, list.width - 8, rowHeight};
         }
+
         const CelestialBody* selectedBody(std::span<const std::unique_ptr<CelestialBody>> bodies,
                                           const Camera& camera) {
             for (const auto& entry : bodies)
@@ -47,6 +51,7 @@ namespace solar {
                     return entry.get();
             return nullptr;
         }
+
         bool earthIsNearest(std::span<const std::unique_ptr<CelestialBody>> bodies, const Camera& camera) {
             const CelestialBody* nearest = nullptr;
             double nearestDistance = std::numeric_limits<double>::infinity();
@@ -62,6 +67,7 @@ namespace solar {
             }
             return nearest && nearest->id() == Body::Earth;
         }
+
         void label(Font font, const char* text, float x, float y, float size, Color color) {
             DrawTextEx(font, text, {x, y}, size, 0.2f, color);
         }
@@ -106,6 +112,7 @@ namespace solar {
                     std::clamp(static_cast<int>(listFirst_) + direction, 0, static_cast<int>(maxFirst)));
             }
         }
+
         if (draggingCloudOpacity_) {
             if (!earthNearest || !earth.clouds().cloudsEnabled() || !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                 draggingCloudOpacity_ = false;
@@ -115,18 +122,22 @@ namespace solar {
             }
             return;
         }
+
         if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             return;
+
         if (CheckCollisionPointRec(mouse, hideBounds(panel))) {
             hidden_ = true;
             open_ = false;
             draggingCloudOpacity_ = false;
             return;
         }
+
         if (CheckCollisionPointRec(mouse, combo)) {
             open_ = !open_;
             return;
         }
+
         if (open_) {
             const Rectangle list = listBounds(combo, bodies.size());
             for (std::size_t row = 0; row < rows; ++row) {

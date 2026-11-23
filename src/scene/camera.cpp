@@ -135,10 +135,12 @@ namespace solar {
         const auto containsBody = [bodies](const CelestialBody* body) {
             return std::any_of(bodies.begin(), bodies.end(), [body](const auto& entry) { return entry.get() == body; });
         };
+
         if (followedBody_ && !containsBody(followedBody_)) {
             followedBody_ = nullptr;
             flying_ = false;
         }
+
         if (followedBody_) {
             const glm::dvec3 target = followedBody_->positionKm();
             if (flying_) {
@@ -149,6 +151,7 @@ namespace solar {
             }
             lastFollowedPosition_ = target;
         }
+
         if (orbitTarget_ && !containsBody(orbitTarget_)) {
             orbitTarget_ = nullptr;
         }
@@ -157,11 +160,13 @@ namespace solar {
                 orbitTarget_ = nullptr;
             return;
         }
+
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             orbitTarget_ = bodyUnderMouse(scene);
             pressPosition_ = GetMousePosition();
             dragging_ = false;
         }
+
         if (orbitTarget_ && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
             const Vector2 mouse = GetMousePosition();
             if (std::hypot(mouse.x - pressPosition_.x, mouse.y - pressPosition_.y) > 4.0f)
@@ -173,12 +178,14 @@ namespace solar {
                 orbit(lastFollowedPosition_, GetMouseDelta());
             }
         }
+
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
             if (acceptMouse && orbitTarget_ && !dragging_ && bodyUnderMouse(scene) == orbitTarget_) {
                 flyToBody(*orbitTarget_);
             }
             orbitTarget_ = nullptr;
         }
+
         if (acceptMouse)
             zoom(GetMouseWheelMove(), scene);
     }
@@ -211,6 +218,7 @@ namespace solar {
         const double steps = std::clamp(static_cast<double>(wheelMovement), -10.0, 10.0);
         double distance = viewDistance * kmPerSceneUnit_ * std::abs(1.0 - std::pow(0.8, steps));
         const glm::dvec3 direction = view / viewDistance * (steps > 0.0 ? 1.0 : -1.0);
+
         for (const auto& entry : scene.bodies()) {
             const auto* body = entry.get();
             if (!body)
@@ -220,6 +228,7 @@ namespace solar {
             distance = limitCameraMovement(positionKm_, direction, distance, body->positionKm(),
                                            (radius + clearance) * kmPerSceneUnit_);
         }
+
         positionKm_ += direction * distance;
         if (followedBody_)
             camera_.target = relativeScenePosition(followedBody_->positionKm());
