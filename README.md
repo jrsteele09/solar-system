@@ -2,11 +2,9 @@
 
 A solar system viewer written in C++.
 
-<p>
-  <img src="screenshots/earth.png" alt="Earth" width="32%">
-  <img src="screenshots/moon.png" alt="Moon" width="32%">
-  <img src="screenshots/saturn.png" alt="Saturn" width="32%">
-</p>
+![Earth](screenshots/earth.png)
+![Moon](screenshots/moon.png)
+![Saturn](screenshots/saturn.png)
 
 ## Setup
 
