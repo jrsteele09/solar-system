@@ -4,7 +4,7 @@
 #include "celestial/sun.hpp"
 
 #include <algorithm>
-#include <raymath.h>
+#include <glm/geometric.hpp>
 #include <rlgl.h>
 #include <stdexcept>
 
@@ -120,8 +120,9 @@ namespace solar {
         for (const auto& entry : bodies_) {
             const auto& body = *entry;
             const Vector3 position = camera.relativeScenePosition(body.positionKm());
-            farDistance = std::max(
-                farDistance, static_cast<double>(Vector3Length(position) + body.visibleRadius(camera, screenHeight)));
+            const glm::vec3 relativePosition{position.x, position.y, position.z};
+            farDistance = std::max(farDistance, static_cast<double>(glm::length(relativePosition) +
+                                                                    body.visibleRadius(camera, screenHeight)));
         }
 
         rlSetClipPlanes(rlGetCullDistanceNear(), farDistance * 1.1);

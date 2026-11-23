@@ -1,6 +1,7 @@
 #include "sun_glow.hpp"
 
-#include <raymath.h>
+#include <glm/geometric.hpp>
+#include <glm/vec3.hpp>
 #include <rlgl.h>
 
 #include <algorithm>
@@ -41,7 +42,7 @@ namespace solar {
     }
 
     float SunGlow::radius(Vector3 position, float sunRadius, float fov, int screenHeight) const {
-        const float distance = Vector3Length(position);
+        const float distance = glm::length(glm::vec3{position.x, position.y, position.z});
         const float radians = fov * std::numbers::pi_v<float> / 180.0f;
         const float minimumDiameter = 2.0f * distance * std::tan(radians * 0.5f) * minimumDiameterPixels /
                                       static_cast<float>(std::max(screenHeight, 1));
@@ -53,11 +54,15 @@ namespace solar {
         const float glowRadius = radius(position, sunRadius, camera.fovy, screenHeight);
         const float diameter = glowRadius * 2.0f;
         const float coreRadius = sunRadius / glowRadius;
-        const Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
-        const Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
-        const Vector3 up = Vector3Normalize(Vector3CrossProduct(right, forward));
-        const Vector3 towardCamera = Vector3Normalize(Vector3Negate(position));
-        const Vector3 face = Vector3Add(position, Vector3Scale(towardCamera, sunRadius * 1.01f));
+        const glm::vec3 cameraPosition{camera.position.x, camera.position.y, camera.position.z};
+        const glm::vec3 cameraTarget{camera.target.x, camera.target.y, camera.target.z};
+        const glm::vec3 cameraUp{camera.up.x, camera.up.y, camera.up.z};
+        const glm::vec3 sunPosition{position.x, position.y, position.z};
+        const glm::vec3 forward = glm::normalize(cameraTarget - cameraPosition);
+        const glm::vec3 right = glm::normalize(glm::cross(forward, cameraUp));
+        const glm::vec3 up = glm::normalize(glm::cross(right, forward));
+        const glm::vec3 towardCamera = glm::normalize(-sunPosition);
+        const glm::vec3 face = sunPosition + towardCamera * (sunRadius * 1.01f);
 
         SetShaderValue(shader_, timeLocation_, &elapsedSeconds, SHADER_UNIFORM_FLOAT);
         SetShaderValue(shader_, coreRadiusLocation_, &coreRadius, SHADER_UNIFORM_FLOAT);
@@ -65,8 +70,8 @@ namespace solar {
         rlDisableDepthMask();
         BeginBlendMode(BLEND_ADDITIVE);
         BeginShaderMode(shader_);
-        DrawBillboardPro(camera, texture_, {0, 0, 1, 1}, face, up, {diameter, diameter}, {glowRadius, glowRadius}, 0.0f,
-                         WHITE);
+        DrawBillboardPro(camera, texture_, {0, 0, 1, 1}, {face.x, face.y, face.z}, {up.x, up.y, up.z},
+                         {diameter, diameter}, {glowRadius, glowRadius}, 0.0f, WHITE);
         EndShaderMode();
         EndBlendMode();
         rlDrawRenderBatchActive();
@@ -75,11 +80,11 @@ namespace solar {
         // Short rays keep the glow visible even close to the Sun.
         for (int i = 0; i < 8; ++i) {
             const float angle = i * std::numbers::pi_v<float> / 4.0f + elapsedSeconds * 0.008f;
-            const Vector3 direction =
-                Vector3Add(Vector3Scale(right, std::cos(angle)), Vector3Scale(up, std::sin(angle)));
+            const glm::vec3 direction = right * std::cos(angle) + up * std::sin(angle);
             const float length = sunRadius * (1.23f + 0.07f * std::sin(elapsedSeconds * 1.4f + i * 2.7f));
-            DrawLine3D(Vector3Add(face, Vector3Scale(direction, sunRadius * 0.98f)),
-                       Vector3Add(face, Vector3Scale(direction, length)), Color{255, 240, 187, 210});
+            const glm::vec3 start = face + direction * (sunRadius * 0.98f);
+            const glm::vec3 end = face + direction * length;
+            DrawLine3D({start.x, start.y, start.z}, {end.x, end.y, end.z}, Color{255, 240, 187, 210});
         }
     }
 } // namespace solar

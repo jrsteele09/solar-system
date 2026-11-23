@@ -7,8 +7,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <glm/geometric.hpp>
 #include <numbers>
-#include <raymath.h>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -71,19 +71,27 @@ namespace solar {
     }
 
     void StarField::draw(const Camera3D& camera) const {
-        const Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
-        const Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
-        const Vector3 up = Vector3CrossProduct(right, forward);
+        const glm::vec3 cameraPosition{camera.position.x, camera.position.y, camera.position.z};
+        const glm::vec3 cameraTarget{camera.target.x, camera.target.y, camera.target.z};
+        const glm::vec3 cameraUp{camera.up.x, camera.up.y, camera.up.z};
+        const glm::vec3 forward = glm::normalize(cameraTarget - cameraPosition);
+        const glm::vec3 right = glm::normalize(glm::cross(forward, cameraUp));
+        const glm::vec3 up = glm::cross(right, forward);
+
         const float width = static_cast<float>(GetScreenWidth());
         const float height = static_cast<float>(GetScreenHeight());
+
         const float focal = height / (2.0f * std::tan(camera.fovy * static_cast<float>(radiansPerDegree) / 2.0f));
+
         for (const auto& star : stars_) {
-            const Vector3 direction{star.direction.x, star.direction.y, star.direction.z};
-            const float depth = Vector3DotProduct(direction, forward);
+            const glm::vec3& direction = star.direction;
+            const float depth = glm::dot(direction, forward); // > 0 means the star is in front of the camera
             if (depth <= 0.0f)
                 continue;
-            const float x = width * 0.5f + focal * Vector3DotProduct(direction, right) / depth;
-            const float y = height * 0.5f - focal * Vector3DotProduct(direction, up) / depth;
+
+            const float x = width * 0.5f + focal * glm::dot(direction, right) / depth;
+            const float y = height * 0.5f - focal * glm::dot(direction, up) / depth;
+
             if (x < -4 || x > width + 4 || y < -4 || y > height + 4)
                 continue;
             const float brightness = std::clamp((faintestMagnitude - star.magnitude) / 7.0f, 0.0f, 1.0f);

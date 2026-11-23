@@ -4,9 +4,9 @@
 #include "camera.hpp"
 #include "celestial/celestial_body.hpp"
 #include "celestial/earth.hpp"
+#include "celestial/star_field.hpp"
 #include "shader/sun_glow.hpp"
 #include "shader/sunlight.hpp"
-#include "celestial/star_field.hpp"
 
 #include <functional>
 #include <memory>
