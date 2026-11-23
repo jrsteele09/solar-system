@@ -24,8 +24,8 @@ namespace solar {
 
     CelestialBody::CelestialBody(const Mesh& mesh, double size, glm::dvec3 positionKm, const SurfaceTexture* texture,
                                  const Sunlight* sunlight, SurfaceStyle style, Color color)
-        : drawSolid_(texture != nullptr || style == SurfaceStyle::Solid), color_(color), size_(checkedSize(size)),
-          positionKm_(positionKm) {
+        : sunlight_(sunlight), drawSolid_(texture != nullptr || style == SurfaceStyle::Solid), color_(color),
+          size_(checkedSize(size)), positionKm_(positionKm) {
         constexpr auto maxAllocationBytes = std::numeric_limits<unsigned int>::max();
         constexpr auto maxVerticesForAllocation = maxAllocationBytes / (3 * sizeof(float));
 
@@ -43,6 +43,7 @@ namespace solar {
             radiusSceneUnits_ = std::max(radiusSceneUnits_, glm::length(vertex) * size_);
         }
 
+        // Convert the mesh to a raylib Mesh and upload it to the GPU.
         ::Mesh rayMesh{};
         rayMesh.vertexCount = static_cast<int>(count);
         rayMesh.triangleCount = rayMesh.vertexCount / 3;
@@ -79,6 +80,8 @@ namespace solar {
 
         UploadMesh(&rayMesh, false); // Copy mesh data to GPU
         model_ = LoadModelFromMesh(rayMesh);
+
+        // Set the modesl texture and the sunlight shader if switched on
         if (texture) {
             SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_ALBEDO, texture->texture());
             if (sunlight)
@@ -96,6 +99,24 @@ namespace solar {
         orientation_ = orientation;
     }
 
+    void CelestialBody::configure(Body id, std::function<glm::mat4(double, double)> orientation,
+                                  std::unique_ptr<SurfaceTexture> surface, std::unique_ptr<SurfaceTexture> night,
+                                  std::unique_ptr<SurfaceTexture> rings) {
+        id_ = id;
+        orientationFunction_ = std::move(orientation);
+        surface_ = std::move(surface);
+        night_ = std::move(night);
+        rings_ = std::move(rings);
+        if (night_)
+            setNightTexture(*night_);
+    }
+
+    void CelestialBody::update(const Ephemeris& ephemeris, double utc, double elapsedSeconds,
+                               glm::dvec3 sunPositionKm) {
+        const auto rotation = orientationFunction_ ? orientationFunction_(utc, elapsedSeconds) : glm::mat4{1.0f};
+        update(sunPositionKm + ephemeris.position(id_, utc), rotation);
+    }
+
     void CelestialBody::setNightTexture(const SurfaceTexture& texture) {
         SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_EMISSION, texture.texture());
     }
@@ -104,7 +125,15 @@ namespace solar {
         SetMaterialTexture(&model_.materials[0], MATERIAL_MAP_OCCLUSION, texture);
     }
 
+    void CelestialBody::prepareLighting() const {
+        if (sunlight_) {
+            sunlight_->setNightLights(false);
+            sunlight_->setClouds(false);
+        }
+    }
+
     void CelestialBody::draw(Vector3 position) const {
+        prepareLighting();
         Model model = model_;
         model.transform = {orientation_[0][0], orientation_[1][0], orientation_[2][0], orientation_[3][0],
                            orientation_[0][1], orientation_[1][1], orientation_[2][1], orientation_[3][1],

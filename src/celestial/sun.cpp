@@ -1,5 +1,5 @@
 #include "sun.hpp"
-#include "camera/camera.hpp"
+#include "scene/camera.hpp"
 
 namespace solar {
     Sun::Sun(const Mesh& mesh, double size, const SunGlow& glow, Color color)

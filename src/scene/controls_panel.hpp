@@ -11,7 +11,7 @@ namespace solar {
         ControlsPanel(const ControlsPanel&) = delete;
         ControlsPanel& operator=(const ControlsPanel&) = delete;
         bool containsMouse(const Scene& scene, const Camera& camera) const;
-        void update(Scene& scene, Camera& camera, glm::dvec3 sunPositionKm);
+        void update(Scene& scene, Camera& camera);
         void draw(const Scene& scene, const Camera& camera) const;
 
       private:

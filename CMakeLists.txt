@@ -29,11 +29,11 @@ add_executable(solar_system
     src/main.cpp
     src/astronomy/planet_orientation.cpp
     src/astronomy/ephemeris.cpp
-    src/camera/camera.cpp
+    src/scene/camera.cpp
     src/scene/scene.cpp
     src/scene/controls_panel.cpp
-    src/scene/earth_clouds.cpp
-    src/scene/star_field.cpp
+    src/celestial/earth_clouds.cpp
+    src/celestial/star_field.cpp
     src/mesh/mesh.cpp
     src/mesh/sphere.cpp
     src/celestial/celestial_body.cpp

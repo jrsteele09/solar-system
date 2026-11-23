@@ -2,10 +2,10 @@
 
 #include <glm/vec3.hpp>
 #include <raylib.h>
-#include <span>
 
 namespace solar {
     class CelestialBody;
+    class Scene;
 
     // Limit a camera movement so it stops before entering a body's bounding sphere.
     double limitCameraMovement(glm::dvec3 positionKm, glm::dvec3 direction, double distanceKm,
@@ -14,17 +14,18 @@ namespace solar {
     class Camera {
       public:
         explicit Camera(double kmPerSceneUnit);
+        Camera(const Scene& scene, double kmPerSceneUnit, double initialDistanceKm, glm::dvec3 sunPositionKm);
         Camera(glm::dvec3 positionKm, glm::dvec3 targetKm, double kmPerSceneUnit);
 
         // Look at a target from the direction of another position.
         void reset(glm::dvec3 targetKm, glm::dvec3 viewFromKm, double distanceKm);
 
         // Click a body to fly to it, drag it to orbit, or scroll to zoom.
-        void updateOrbitControls(std::span<const CelestialBody* const> bodies, bool acceptMouse = true);
+        void updateOrbitControls(const Scene& scene, bool acceptMouse = true);
 
         // Fly to a body or face it from the Sun's direction at the current distance.
         void flyToBody(const CelestialBody& body);
-        void resetToBody(const CelestialBody& body, glm::dvec3 sunPositionKm);
+        void resetToBody(const CelestialBody& body);
         const CelestialBody* followedBody() const { return followedBody_; }
 
         // Start and advance a flight toward a moving target.
@@ -35,7 +36,7 @@ namespace solar {
         void orbit(glm::dvec3 targetKm, Vector2 mouseMovement);
 
         // Move along the view direction, stopping at celestial bodies.
-        void zoom(float wheelMovement, std::span<const CelestialBody* const> bodies);
+        void zoom(float wheelMovement, const Scene& scene);
 
         // Find where an object is relative to the camera, in scene units.
         Vector3 relativeScenePosition(glm::dvec3 positionKm) const;
@@ -48,6 +49,7 @@ namespace solar {
 
       private:
         glm::dvec3 positionKm_;
+        glm::dvec3 sunPositionKm_{0.0};
         double kmPerSceneUnit_;
         Camera3D camera_{};
         const CelestialBody* orbitTarget_ = nullptr;
@@ -63,6 +65,6 @@ namespace solar {
         glm::dvec3 flightStartDirection_{};
         glm::dvec3 lastFollowedPosition_{};
 
-        const CelestialBody* bodyUnderMouse(std::span<const CelestialBody* const> bodies) const;
+        const CelestialBody* bodyUnderMouse(const Scene& scene) const;
     };
 } // namespace solar

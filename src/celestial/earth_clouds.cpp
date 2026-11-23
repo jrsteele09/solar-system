@@ -80,66 +80,70 @@ namespace solar {
         }
     } // namespace
 
-    EarthClouds::EarthClouds() : curlReady_(curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK) {}
+    EarthClouds::EarthClouds() : cloudHttpReady_(curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK) {}
     EarthClouds::~EarthClouds() {
-        if (pending_.valid())
-            pending_.wait();
-        if (IsTextureValid(texture_))
-            UnloadTexture(texture_);
-        if (curlReady_)
+        if (cloudDownload_.valid())
+            cloudDownload_.wait();
+        if (IsTextureValid(cloudTexture_))
+            UnloadTexture(cloudTexture_);
+        if (cloudHttpReady_)
             curl_global_cleanup();
     }
 
-    void EarthClouds::enable(bool enabled) {
-        enabled_ = enabled;
-        if (enabled) refresh();
+    void EarthClouds::enableClouds(bool enabled) {
+        cloudsEnabled_ = enabled;
+        if (enabled)
+            refreshClouds();
     }
 
-    void EarthClouds::refresh() {
-        if (!enabled_ || pending_.valid())
+    void EarthClouds::refreshClouds() {
+        if (!cloudsEnabled_ || cloudDownload_.valid())
             return;
-        failed_ = !curlReady_;
-        if (curlReady_) {
+        cloudRefreshFailed_ = !cloudHttpReady_;
+        if (cloudHttpReady_) {
             try {
-                pending_ = std::async(std::launch::async, download);
+                cloudDownload_ = std::async(std::launch::async, download);
             } catch (...) {
-                failed_ = true;
+                cloudRefreshFailed_ = true;
             }
         }
     }
 
-    void EarthClouds::update() {
-        if (!pending_.valid() || pending_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+    void EarthClouds::checkCloudDownload() {
+        if (!cloudDownload_.valid() || cloudDownload_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
             return;
+
         std::vector<unsigned char> bytes;
         try {
-            bytes = pending_.get();
+            bytes = cloudDownload_.get();
         } catch (...) {
-            failed_ = true;
+            cloudRefreshFailed_ = true;
             return;
         }
+
         if (!expectedJpeg(bytes)) {
-            failed_ = true;
+            cloudRefreshFailed_ = true;
             return;
         }
+
         Image image = LoadImageFromMemory(".jpg", bytes.data(), static_cast<int>(bytes.size()));
         if (!IsImageValid(image) || image.width != 2048 || image.height != 1024) {
             if (IsImageValid(image))
                 UnloadImage(image);
-            failed_ = true;
+            cloudRefreshFailed_ = true;
             return;
         }
         Texture2D replacement = LoadTextureFromImage(image);
         UnloadImage(image);
         if (!IsTextureValid(replacement)) {
-            failed_ = true;
+            cloudRefreshFailed_ = true;
             return;
         }
         GenTextureMipmaps(&replacement);
         SetTextureFilter(replacement, TEXTURE_FILTER_TRILINEAR);
-        if (IsTextureValid(texture_))
-            UnloadTexture(texture_);
-        texture_ = replacement;
-        failed_ = false;
+        if (IsTextureValid(cloudTexture_))
+            UnloadTexture(cloudTexture_);
+        cloudTexture_ = replacement;
+        cloudRefreshFailed_ = false;
     }
 } // namespace solar

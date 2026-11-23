@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "celestial/celestial_body.hpp"
+#include "scene/scene.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -15,7 +16,8 @@ namespace solar {
         // The solar-system-sized depth range makes the usual float matrix inversion unstable.
         glm::dvec3 mouseRayDirection(const Camera3D& camera, Vector2 mouse, int width, int height) {
             const glm::dvec3 forward = glm::normalize(glm::dvec3{camera.target.x, camera.target.y, camera.target.z});
-            const glm::dvec3 right = glm::normalize(glm::cross(forward, glm::dvec3{camera.up.x, camera.up.y, camera.up.z}));
+            const glm::dvec3 right =
+                glm::normalize(glm::cross(forward, glm::dvec3{camera.up.x, camera.up.y, camera.up.z}));
             const glm::dvec3 up = glm::cross(right, forward);
             const double halfHeight = std::tan(camera.fovy * std::numbers::pi_v<double> / 360.0);
             const double x = (2.0 * mouse.x / width - 1.0) * halfHeight * width / height;
@@ -29,7 +31,8 @@ namespace solar {
             // The cross product avoids subtracting two enormous squared distances.
             const glm::dvec3 perpendicular = glm::cross(toCentre, direction);
             const double inside = radius * radius - glm::dot(perpendicular, perpendicular);
-            if (inside < 0.0) return std::numeric_limits<double>::infinity();
+            if (inside < 0.0)
+                return std::numeric_limits<double>::infinity();
             const double halfChord = std::sqrt(inside);
             const double nearHit = projection - halfChord;
             const double farHit = projection + halfChord;
@@ -39,7 +42,8 @@ namespace solar {
         // Keep the camera's up direction perpendicular to its view, including near the poles.
         void alignCameraUp(Camera3D& camera) {
             const glm::dvec3 view{camera.target.x, camera.target.y, camera.target.z};
-            if (glm::length(view) < 1e-12) return;
+            if (glm::length(view) < 1e-12)
+                return;
             const glm::dvec3 forward = glm::normalize(view);
             glm::dvec3 up{camera.up.x, camera.up.y, camera.up.z};
             up -= forward * glm::dot(up, forward);
@@ -70,6 +74,14 @@ namespace solar {
 
     Camera::Camera(double kmPerSceneUnit) : Camera(glm::dvec3{0.0, 0.0, 1.0}, glm::dvec3{0.0}, kmPerSceneUnit) {}
 
+    Camera::Camera(const Scene& scene, double kmPerSceneUnit, double initialDistanceKm, glm::dvec3 sunPositionKm)
+        : Camera(kmPerSceneUnit) {
+        sunPositionKm_ = sunPositionKm;
+        const auto& earth = scene.getCelestialBody(Body::Earth);
+        reset(earth.positionKm(), sunPositionKm_, initialDistanceKm);
+        resetToBody(earth);
+    }
+
     Camera::Camera(glm::dvec3 positionKm, glm::dvec3 targetKm, double kmPerSceneUnit)
         : positionKm_(positionKm), kmPerSceneUnit_(kmPerSceneUnit) {
         camera_.position = {0.0f, 0.0f, 0.0f};
@@ -96,14 +108,16 @@ namespace solar {
         flying_ = false;
     }
 
-    const CelestialBody* Camera::bodyUnderMouse(std::span<const CelestialBody* const> bodies) const {
+    const CelestialBody* Camera::bodyUnderMouse(const Scene& scene) const {
         const int width = GetScreenWidth();
         const int height = GetScreenHeight();
-        if (width <= 0 || height <= 0) return nullptr;
+        if (width <= 0 || height <= 0)
+            return nullptr;
         const glm::dvec3 direction = mouseRayDirection(camera_, GetMousePosition(), width, height);
         const CelestialBody* closest = nullptr;
         double closestDistance = std::numeric_limits<double>::infinity();
-        for (const auto* body : bodies) {
+        for (const auto& entry : scene.bodies()) {
+            const auto* body = entry.get();
             if (!body)
                 continue;
             const double distance = raySphereDistance(positionKm_, direction, body->positionKm(),
@@ -116,8 +130,12 @@ namespace solar {
         return closest;
     }
 
-    void Camera::updateOrbitControls(std::span<const CelestialBody* const> bodies, bool acceptMouse) {
-        if (followedBody_ && std::find(bodies.begin(), bodies.end(), followedBody_) == bodies.end()) {
+    void Camera::updateOrbitControls(const Scene& scene, bool acceptMouse) {
+        const auto bodies = scene.bodies();
+        const auto containsBody = [bodies](const CelestialBody* body) {
+            return std::any_of(bodies.begin(), bodies.end(), [body](const auto& entry) { return entry.get() == body; });
+        };
+        if (followedBody_ && !containsBody(followedBody_)) {
             followedBody_ = nullptr;
             flying_ = false;
         }
@@ -131,7 +149,7 @@ namespace solar {
             }
             lastFollowedPosition_ = target;
         }
-        if (orbitTarget_ && std::find(bodies.begin(), bodies.end(), orbitTarget_) == bodies.end()) {
+        if (orbitTarget_ && !containsBody(orbitTarget_)) {
             orbitTarget_ = nullptr;
         }
         if (!acceptMouse && !orbitTarget_) {
@@ -140,7 +158,7 @@ namespace solar {
             return;
         }
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            orbitTarget_ = bodyUnderMouse(bodies);
+            orbitTarget_ = bodyUnderMouse(scene);
             pressPosition_ = GetMousePosition();
             dragging_ = false;
         }
@@ -156,12 +174,13 @@ namespace solar {
             }
         }
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-            if (acceptMouse && orbitTarget_ && !dragging_ && bodyUnderMouse(bodies) == orbitTarget_) {
+            if (acceptMouse && orbitTarget_ && !dragging_ && bodyUnderMouse(scene) == orbitTarget_) {
                 flyToBody(*orbitTarget_);
             }
             orbitTarget_ = nullptr;
         }
-        if (acceptMouse) zoom(GetMouseWheelMove(), bodies);
+        if (acceptMouse)
+            zoom(GetMouseWheelMove(), scene);
     }
 
     void Camera::flyToBody(const CelestialBody& body) {
@@ -170,17 +189,17 @@ namespace solar {
         flyTo(lastFollowedPosition_, body.radiusSceneUnits());
     }
 
-    void Camera::resetToBody(const CelestialBody& body, glm::dvec3 sunPositionKm) {
+    void Camera::resetToBody(const CelestialBody& body) {
         const glm::dvec3 target = body.positionKm();
         const double distance = glm::length(positionKm_ - target);
-        if (glm::length(sunPositionKm - target) == 0.0 || distance == 0.0)
+        if (glm::length(sunPositionKm_ - target) == 0.0 || distance == 0.0)
             return;
-        reset(target, sunPositionKm, distance);
+        reset(target, sunPositionKm_, distance);
         followedBody_ = &body;
         lastFollowedPosition_ = target;
     }
 
-    void Camera::zoom(float wheelMovement, std::span<const CelestialBody* const> bodies) {
+    void Camera::zoom(float wheelMovement, const Scene& scene) {
         if (wheelMovement == 0.0f)
             return;
         const glm::dvec3 view{camera_.target.x, camera_.target.y, camera_.target.z};
@@ -192,7 +211,8 @@ namespace solar {
         const double steps = std::clamp(static_cast<double>(wheelMovement), -10.0, 10.0);
         double distance = viewDistance * kmPerSceneUnit_ * std::abs(1.0 - std::pow(0.8, steps));
         const glm::dvec3 direction = view / viewDistance * (steps > 0.0 ? 1.0 : -1.0);
-        for (const auto* body : bodies) {
+        for (const auto& entry : scene.bodies()) {
+            const auto* body = entry.get();
             if (!body)
                 continue;
             const double radius = body->radiusSceneUnits();
@@ -299,7 +319,8 @@ namespace solar {
         const Vector3 position = relativeScenePosition(positionKm);
         const glm::dvec3 centre{position.x, position.y, position.z};
         const glm::dvec3 forward = glm::normalize(glm::dvec3{camera_.target.x, camera_.target.y, camera_.target.z});
-        const glm::dvec3 right = glm::normalize(glm::cross(forward, glm::dvec3{camera_.up.x, camera_.up.y, camera_.up.z}));
+        const glm::dvec3 right =
+            glm::normalize(glm::cross(forward, glm::dvec3{camera_.up.x, camera_.up.y, camera_.up.z}));
         const glm::dvec3 up = glm::cross(right, forward);
         const double depth = glm::dot(centre, forward);
         const double vertical = std::tan(camera_.fovy * std::numbers::pi_v<double> / 360.0);

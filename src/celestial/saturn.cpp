@@ -1,5 +1,5 @@
 #include "saturn.hpp"
-#include "camera/camera.hpp"
+#include "scene/camera.hpp"
 
 #include <cmath>
 #include <numbers>
