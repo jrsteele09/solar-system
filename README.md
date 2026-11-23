@@ -49,6 +49,12 @@ centres. Their axial tilts and rotation rates use IAU models, but their starting
 surface longitudes are illustrative. Stars use their Hipparcos catalogue
 directions at epoch 1991.25, without proper motion or parallax.
 
+## Licence
+
+The original project code and material may be used and shared for non-commercial
+purposes. Commercial use requires permission. See [LICENSE](LICENSE). Third-party
+dependencies and assets have their own licences and notices.
+
 ## Architecture
 
 ```mermaid
