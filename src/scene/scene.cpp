@@ -1,7 +1,5 @@
 #include "scene.hpp"
 #include "astronomy/planet_orientation.hpp"
-#include "celestial/saturn.hpp"
-#include "celestial/sun.hpp"
 
 #include <algorithm>
 #include <glm/geometric.hpp>
@@ -22,85 +20,83 @@ namespace solar {
     constexpr double neptuneRadiusKm = 24622.0;
     constexpr double plutoRadiusKm = 1188.3;
 
-    static std::unique_ptr<CelestialBody> makeBody(Body id, double radiusKm, const char* texturePath, const Mesh& mesh,
-                                                   const Ephemeris& ephemeris, const Sunlight& sunlight, double utc,
-                                                   double kmPerSceneUnit, glm::dvec3 sunPositionKm,
-                                                   std::function<glm::mat4(double, double)> orientation = {}) {
+    // Cloud texture URL and dimensions
+    constexpr const char* earthCloudsUrl = "https://clouds.matteason.co.uk/images/2048x1024/clouds.jpg";
+    constexpr int earthCloudsWidth = 2048;
+    constexpr int earthCloudsHeight = 1024;
 
-        auto surface = std::make_unique<SurfaceTexture>(texturePath);
-        std::unique_ptr<CelestialBody> result;
-        const double radius = radiusKm / kmPerSceneUnit;
-        const glm::dvec3 position = sunPositionKm + ephemeris.position(id, utc);
-        if (id == Body::Earth) {
-            result = std::make_unique<Earth>(mesh, radius, position, *surface, sunlight, SOLAR_EARTH_NIGHT_TEXTURE_PATH);
-        } else if (id == Body::SaturnSystem) {
-            result = std::make_unique<Saturn>(mesh, radius, position, *surface, SOLAR_SATURN_RING_TEXTURE_PATH, sunlight);
-        } else {
-            result = std::make_unique<CelestialBody>(mesh, radius, position, surface.get(), &sunlight);
-        }
-        if (!orientation) {
-            orientation = [id](double, double elapsed) { return planetOrientation(id, elapsed); };
-        }
-        result->configure(id, std::move(orientation), std::move(surface));
-        return result;
-    }
+    Scene::Scene(double utcSeconds, double kmPerSceneUnit)
+        : ephemeris_(SOLAR_EPHEMERIS_PATH),
+          surfaceShader_(SOLAR_SURFACE_SHADER_VERTEX_PATH, SOLAR_SURFACE_SHADER_FRAGMENT_PATH),
+          sunGlow_(SOLAR_SUN_GLOW_PATH), stars_(SOLAR_STAR_CATALOGUE_PATH) {
 
-    Scene::Scene(double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm)
-        : ephemeris_(SOLAR_EPHEMERIS_PATH), sunlight_(SOLAR_SUNLIGHT_VERTEX_PATH, SOLAR_SUNLIGHT_FRAGMENT_PATH),
-          sunGlow_(SOLAR_SUN_GLOW_PATH), sunPositionKm_(sunPositionKm), stars_(SOLAR_STAR_CATALOGUE_PATH) {
-
-        // Make the Sun
+        // Make the Sun at its barycentric position
         const Mesh sunSphereMesh = Mesh::createSphere(
             1.0f, 32, 64); // The Sun is drawn with a glow, so it doesn't need a high-resolution mesh.
 
-        auto sun =
-            std::make_unique<Sun>(sunSphereMesh, sunRadiusKm / kmPerSceneUnit, sunGlow_, Color{255, 255, 248, 255});
-        sun->update(sunPositionKm_, glm::mat4{1.0f});
-        sun->configure(Body::Sun, {});
-        bodies_.push_back(std::move(sun));
+        bodies_.push_back(CelestialBody::Builder{sunSphereMesh, sunRadiusKm / kmPerSceneUnit}
+                              .id(Body::Sun)
+                              .position(ephemeris_.position(Body::Sun, utcSeconds))
+                              .style(SurfaceStyle::Solid)
+                              .color(Color{255, 255, 248, 255})
+                              .addEffect(sunGlow_)
+                              .build());
 
         // Make the planets and the Moon
         const Mesh planetSphereMesh = Mesh::createSphere(1.0f, 96, 160);
 
-        // Lambda to add a body to the scene
-        auto add = [&](Body id, double radius, const char* texture,
-                       std::function<glm::mat4(double, double)> orientation = {}) {
-            bodies_.push_back(makeBody(id, radius, texture, planetSphereMesh, ephemeris_, sunlight_, utcSeconds,
-                                       kmPerSceneUnit, sunPositionKm_, std::move(orientation)));
+        // Lambda to create a celestial body builder with common settings.
+        auto body = [&](Body id, double radius, const char* texture) {
+            CelestialBody::Builder builder{planetSphereMesh, radius / kmPerSceneUnit};
+            builder.id(id)
+                .position(ephemeris_.position(id, utcSeconds))
+                .surface(texture)
+                .surfaceShader(surfaceShader_)
+                .orientation([id](double, double elapsed) { return planetOrientation(id, elapsed); });
+            return builder;
         };
 
         // Add the planets and the Moon
-        add(Body::Mercury, mercuryRadiusKm, SOLAR_MERCURY_TEXTURE_PATH);
-        add(Body::Venus, venusRadiusKm, SOLAR_VENUS_TEXTURE_PATH);
-        add(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH, earthOrientation);
-        add(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH, moonOrientation);
-        add(Body::MarsSystem, marsRadiusKm, SOLAR_MARS_TEXTURE_PATH);
-        add(Body::JupiterSystem, jupiterRadiusKm, SOLAR_JUPITER_TEXTURE_PATH);
-        add(Body::SaturnSystem, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH);
-        add(Body::UranusSystem, uranusRadiusKm, SOLAR_URANUS_TEXTURE_PATH);
-        add(Body::NeptuneSystem, neptuneRadiusKm, SOLAR_NEPTUNE_TEXTURE_PATH);
-        add(Body::PlutoSystem, plutoRadiusKm, SOLAR_PLUTO_TEXTURE_PATH);
+        bodies_.push_back(body(Body::Mercury, mercuryRadiusKm, SOLAR_MERCURY_TEXTURE_PATH).build());
+        bodies_.push_back(body(Body::Venus, venusRadiusKm, SOLAR_VENUS_TEXTURE_PATH).build());
+        bodies_.push_back(body(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH)
+                              .orientation(earthOrientation)
+                              .nightLights(SOLAR_EARTH_NIGHT_TEXTURE_PATH)
+                              .clouds({earthCloudsUrl, earthCloudsWidth, earthCloudsHeight})
+                              .build());
+        bodies_.push_back(body(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH).orientation(moonOrientation).build());
+        bodies_.push_back(body(Body::MarsSystem, marsRadiusKm, SOLAR_MARS_TEXTURE_PATH).build());
+        bodies_.push_back(body(Body::JupiterSystem, jupiterRadiusKm, SOLAR_JUPITER_TEXTURE_PATH).build());
+        bodies_.push_back(body(Body::SaturnSystem, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH)
+                              .rings(SOLAR_SATURN_RING_TEXTURE_PATH, 74658.0f / 58232.0f, 136780.0f / 58232.0f)
+                              .build());
+        bodies_.push_back(body(Body::UranusSystem, uranusRadiusKm, SOLAR_URANUS_TEXTURE_PATH).build());
+        bodies_.push_back(body(Body::NeptuneSystem, neptuneRadiusKm, SOLAR_NEPTUNE_TEXTURE_PATH).build());
+        bodies_.push_back(body(Body::PlutoSystem, plutoRadiusKm, SOLAR_PLUTO_TEXTURE_PATH).build());
     }
 
     const CelestialBody& Scene::getCelestialBody(Body id) const {
         const auto entry =
             std::find_if(bodies_.begin(), bodies_.end(), [id](const auto& item) { return item->id() == id; });
-        if (entry == bodies_.end())
+        if (entry == bodies_.end()) {
             throw std::out_of_range{"Body is not in the scene"};
+        }
         return **entry;
     }
 
     CelestialBody& Scene::getCelestialBody(Body id) {
         const auto entry =
             std::find_if(bodies_.begin(), bodies_.end(), [id](const auto& item) { return item->id() == id; });
-        if (entry == bodies_.end())
+        if (entry == bodies_.end()) {
             throw std::out_of_range{"Body is not in the scene"};
+        }
         return **entry;
     }
 
     void Scene::update(double utc, double elapsedSeconds) {
+        currentUtc_ = utc;
         for (const auto& body : bodies_)
-            body->update(ephemeris_, utc, elapsedSeconds, sunPositionKm_);
+            body->update(ephemeris_, utc, elapsedSeconds);
     }
 
     void Scene::draw(const Camera& camera, float elapsedSeconds) const {
@@ -120,9 +116,9 @@ namespace solar {
 
         stars_.draw(camera.raylibCamera());
         BeginMode3D(camera.raylibCamera());
-        // The shader uses camera-relative coordinates.
-        sunlight_.setSunPosition(camera.relativeScenePosition(sunPositionKm_));
-        sunlight_.setShadows(shadowsEnabled_);
+        // The shader uses camera-relative coordinates. Use the Sun's actual position for lighting.
+        surfaceShader_.setSunPosition(camera.relativeScenePosition(ephemeris_.position(Body::Sun, currentUtc_)));
+        surfaceShader_.setShadows(shadowsEnabled_);
 
         for (const auto& entry : bodies_) {
             const auto& body = *entry;

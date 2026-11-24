@@ -36,8 +36,9 @@ namespace solar {
 
     StarField::StarField(const char* cataloguePath) {
         std::ifstream file(cataloguePath);
-        if (!file)
+        if (!file) {
             throw std::runtime_error{"Cannot open Hipparcos star catalogue"};
+        }
         std::string line;
         while (std::getline(file, line)) {
             std::array<std::string_view, 38> fields{};
@@ -64,8 +65,9 @@ namespace solar {
                                         std::sin(delta)};
             stars_.push_back({glm::vec3(toScene(equatorial)), static_cast<float>(magnitude), starColor(bv)});
         }
-        if (file.bad() || stars_.size() < 1000)
+        if (file.bad() || stars_.size() < 1000) {
             throw std::runtime_error{"Invalid Hipparcos star catalogue"};
+        }
     }
 
     void StarField::draw(const Camera3D& camera) const {
@@ -84,14 +86,16 @@ namespace solar {
         for (const auto& star : stars_) {
             const glm::vec3& direction = star.direction;
             const float depth = glm::dot(direction, forward); // > 0 means the star is in front of the camera
-            if (depth <= 0.0f)
+            if (depth <= 0.0f) {
                 continue;
+            }
 
             const float x = width * 0.5f + focal * glm::dot(direction, right) / depth;
             const float y = height * 0.5f - focal * glm::dot(direction, up) / depth;
 
-            if (x < -4 || x > width + 4 || y < -4 || y > height + 4)
+            if (x < -4 || x > width + 4 || y < -4 || y > height + 4) {
                 continue;
+            }
             const float brightness = std::clamp((faintestMagnitude - star.magnitude) / 7.0f, 0.0f, 1.0f);
             Color color = star.color;
             color.a = static_cast<unsigned char>(65 + 190 * std::sqrt(brightness));

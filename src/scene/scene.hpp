@@ -3,10 +3,9 @@
 #include "astronomy/ephemeris.hpp"
 #include "camera.hpp"
 #include "celestial/celestial_body.hpp"
-#include "celestial/earth.hpp"
 #include "celestial/star_field.hpp"
 #include "shader/sun_glow.hpp"
-#include "shader/sunlight.hpp"
+#include "shader/surface_shader.hpp"
 
 #include <functional>
 #include <memory>
@@ -17,7 +16,7 @@ namespace solar {
     // Scene owns its bodies, textures and lighting.
     class Scene {
       public:
-        Scene(double utcSeconds, double kmPerSceneUnit, glm::dvec3 sunPositionKm);
+        Scene(double utcSeconds, double kmPerSceneUnit);
 
         const CelestialBody& getCelestialBody(Body id) const;
         CelestialBody& getCelestialBody(Body id);
@@ -31,9 +30,9 @@ namespace solar {
 
       private:
         Ephemeris ephemeris_;
-        Sunlight sunlight_;
+        SurfaceShader surfaceShader_;
         SunGlow sunGlow_;
-        glm::dvec3 sunPositionKm_;
+        double currentUtc_ = 0.0;
         std::vector<std::unique_ptr<CelestialBody>> bodies_;
         StarField stars_;
         bool shadowsEnabled_ = true;

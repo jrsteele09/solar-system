@@ -9,8 +9,14 @@
 
 namespace solar {
 
-    // IAU 2006 precession and Greenwich mean sidereal time, adapted from ERFA;
-    // see licenses/erfa.txt. UTC approximates UT1; nutation and polar motion are omitted.
+    // Derived from ERFA (see erfa.txt in this folder), itself derived from IAU SOFA:
+    //  - eraEra00: Earth rotation angle (`rotation`)
+    //  - eraGmst06: Greenwich mean sidereal time (`sidereal`, polynomial series)
+    //  - eraPfw06: IAU 2006 precession angles gamma, phi, psi, epsilon
+    // Changes from the originals: the C functions are merged into one function; the
+    // precession matrix is composed with glm rotations instead of ERFA's rotation-matrix
+    // helpers (eraRz/eraRx); and the result is a glm matrix in the scene's coordinate frame
+    // for rendering. UTC stands in for UT1, and nutation and polar motion are omitted.
     glm::mat4 earthOrientation(double utc, double /*elapsedSeconds*/) {
         const double days = (utc - j2000UnixSeconds) / secondsPerDay;
         const double t = terrestrialTime(utc) / (secondsPerDay * 36525.0);
@@ -93,8 +99,9 @@ namespace solar {
             {Body::PlutoSystem, 132.993, -6.163, 56.3625225},
         };
         for (const auto& spin : spins) {
-            if (spin.body != body)
+            if (spin.body != body) {
                 continue;
+            }
             constexpr double radiansPerDegree = std::numbers::pi_v<double> / 180.0;
             const double ra = spin.poleRa * radiansPerDegree;
             const double dec = spin.poleDec * radiansPerDegree;

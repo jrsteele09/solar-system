@@ -73,8 +73,9 @@ namespace solar {
 
     Ephemeris::Ephemeris(const std::string& path) {
         std::ifstream file(path, std::ios::binary);
-        if (!file)
+        if (!file) {
             throw std::runtime_error("Cannot open ephemeris: " + path);
+        }
 
         // Populate the vector with the file’s bytes. This is faster than reading one number at a time.
         ephemerisBytes_ = {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
@@ -129,13 +130,15 @@ namespace solar {
     glm::dvec3 Ephemeris::barycentricPosition(int target, double seconds) const {
         glm::dvec3 result{0};
         for (std::size_t depth = 0; depth <= segments_.size(); ++depth) {
-            if (target == 0)
+            if (target == 0) {
                 return result;
+            }
             auto it = std::find_if(segments_.rbegin(), segments_.rend(), [&](const Segment& s) {
                 return s.target == target && seconds >= s.start && seconds <= s.end;
             });
-            if (it == segments_.rend())
+            if (it == segments_.rend()) {
                 throw std::out_of_range("Time is outside ephemeris coverage");
+            }
             const Segment& s = *it;
             const int index =
                 std::clamp(static_cast<int>(std::floor((seconds - s.initial) / s.interval)), 0, s.recordCount - 1);

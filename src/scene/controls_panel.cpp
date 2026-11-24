@@ -55,8 +55,9 @@ namespace solar {
         const CelestialBody* nearest = nullptr;
         double nearestDistance = std::numeric_limits<double>::infinity();
         for (const auto& entry : bodies) {
-            if (!entry)
+            if (!entry) {
                 continue;
+            }
             const Vector3 position = camera.relativeScenePosition(entry->positionKm());
             const double distance = std::hypot(position.x, position.y, position.z) - entry->radiusSceneUnits();
             if (distance < nearestDistance) {
@@ -78,9 +79,10 @@ namespace solar {
     ControlsPanel::~ControlsPanel() { UnloadFont(font_); }
 
     bool ControlsPanel::containsMouse(const Scene& scene, const Camera& camera) const {
-        if (hidden_)
+        if (hidden_) {
             return CheckCollisionPointRec(GetMousePosition(), revealBounds());
-        const auto& earth = dynamic_cast<const Earth&>(scene.getCelestialBody(Body::Earth));
+        }
+        const auto& earth = scene.getCelestialBody(Body::Earth);
         // While the list is open, an outside click dismisses it without affecting the scene.
         return open_ || draggingCloudOpacity_ ||
                CheckCollisionPointRec(GetMousePosition(), panelBounds(earthIsNearest(scene.bodies(), camera),
@@ -94,7 +96,7 @@ namespace solar {
                 hidden_ = false;
             return;
         }
-        auto& earth = dynamic_cast<Earth&>(scene.getCelestialBody(Body::Earth));
+        auto& earth = scene.getCelestialBody(Body::Earth);
         const auto bodies = scene.bodies();
         const bool earthNearest = earthIsNearest(bodies, camera);
         const Rectangle panel = panelBounds(earthNearest, earth.clouds().cloudsEnabled());
@@ -178,7 +180,7 @@ namespace solar {
             label(font_, "Controls", button.x + 12, button.y + 6, 15, Color{225, 233, 240, 255});
             return;
         }
-        const auto& earth = dynamic_cast<const Earth&>(scene.getCelestialBody(Body::Earth));
+        const auto& earth = scene.getCelestialBody(Body::Earth);
         const auto bodies = scene.bodies();
         const bool earthNearest = earthIsNearest(bodies, camera);
         const Rectangle panel = panelBounds(earthNearest, earth.clouds().cloudsEnabled());

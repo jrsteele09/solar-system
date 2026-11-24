@@ -14,7 +14,7 @@ namespace solar {
     class Camera {
       public:
         explicit Camera(double kmPerSceneUnit);
-        Camera(const Scene& scene, double kmPerSceneUnit, double initialDistanceKm, glm::dvec3 sunPositionKm);
+        Camera(const Scene& scene, double kmPerSceneUnit, double initialDistanceKm);
         Camera(glm::dvec3 positionKm, glm::dvec3 targetKm, double kmPerSceneUnit);
 
         // Look at a target from the direction of another position.

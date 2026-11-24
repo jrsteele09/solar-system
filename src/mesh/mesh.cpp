@@ -2,6 +2,7 @@
 
 #include <glm/geometric.hpp>
 
+#include <numbers>
 #include <stdexcept>
 #include <utility>
 
@@ -28,5 +29,36 @@ namespace solar {
         }
 
         return Mesh{std::vector<glm::vec3>{vertices.begin(), vertices.end()}};
+    }
+
+    Mesh Mesh::createRings(double innerRadius, double outerRadius, int segments) {
+        std::vector<glm::vec3> vertices;
+        vertices.reserve(segments * 6);
+
+        for (int i = 0; i < segments; ++i) {
+            const float a = 2.0f * std::numbers::pi_v<float> * i / segments;
+            const float b = 2.0f * std::numbers::pi_v<float> * (i + 1) / segments;
+
+            const float inner_a_x = std::cos(a) * static_cast<float>(innerRadius);
+            const float inner_a_z = std::sin(a) * static_cast<float>(innerRadius);
+            const float inner_b_x = std::cos(b) * static_cast<float>(innerRadius);
+            const float inner_b_z = std::sin(b) * static_cast<float>(innerRadius);
+            const float outer_a_x = std::cos(a) * static_cast<float>(outerRadius);
+            const float outer_a_z = std::sin(a) * static_cast<float>(outerRadius);
+            const float outer_b_x = std::cos(b) * static_cast<float>(outerRadius);
+            const float outer_b_z = std::sin(b) * static_cast<float>(outerRadius);
+
+            // Triangle 1: inner_a, outer_b, outer_a
+            vertices.push_back({inner_a_x, 0.0f, inner_a_z});
+            vertices.push_back({outer_b_x, 0.0f, outer_b_z});
+            vertices.push_back({outer_a_x, 0.0f, outer_a_z});
+
+            // Triangle 2: inner_a, inner_b, outer_b
+            vertices.push_back({inner_a_x, 0.0f, inner_a_z});
+            vertices.push_back({inner_b_x, 0.0f, inner_b_z});
+            vertices.push_back({outer_b_x, 0.0f, outer_b_z});
+        }
+
+        return fromTriangles(vertices);
     }
 } // namespace solar

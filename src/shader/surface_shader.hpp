@@ -3,14 +3,14 @@
 #include <raylib.h>
 
 namespace solar {
-    // Lights a surface from the Sun, leaving the opposite side dark.
-    class Sunlight {
+    // Renders surfaces with sunlight, shadows, night lights and clouds.
+    class SurfaceShader {
       public:
-        Sunlight(const char* vertexPath, const char* fragmentPath);
-        ~Sunlight();
+        SurfaceShader(const char* vertexPath, const char* fragmentPath);
+        ~SurfaceShader();
 
-        Sunlight(const Sunlight&) = delete;
-        Sunlight& operator=(const Sunlight&) = delete;
+        SurfaceShader(const SurfaceShader&) = delete;
+        SurfaceShader& operator=(const SurfaceShader&) = delete;
 
         // The Sun's position uses the same camera-relative coordinates as the body.
         void setSunPosition(Vector3 position) const;

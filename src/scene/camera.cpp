@@ -30,8 +30,9 @@ namespace solar {
         // The cross product avoids subtracting two enormous squared distances.
         const glm::dvec3 perpendicular = glm::cross(toCentre, direction);
         const double inside = radius * radius - glm::dot(perpendicular, perpendicular);
-        if (inside < 0.0)
+        if (inside < 0.0) {
             return std::numeric_limits<double>::infinity();
+        }
         const double halfChord = std::sqrt(inside);
         const double nearHit = projection - halfChord;
         const double farHit = projection + halfChord;
@@ -41,8 +42,9 @@ namespace solar {
     // Keep the camera's up direction perpendicular to its view, including near the poles.
     static void alignCameraUp(Camera3D& camera) {
         const glm::dvec3 view{camera.target.x, camera.target.y, camera.target.z};
-        if (glm::length(view) < 1e-12)
+        if (glm::length(view) < 1e-12) {
             return;
+        }
         const glm::dvec3 forward = glm::normalize(view);
         glm::dvec3 up{camera.up.x, camera.up.y, camera.up.z};
         up -= forward * glm::dot(up, forward);
@@ -60,22 +62,26 @@ namespace solar {
         const double projection = glm::dot(offset, direction);
         const double outside = glm::dot(offset, offset) - radiusKm * radiusKm;
         // If already inside the clearance area, allow movement away from the centre.
-        if (outside <= 0.0)
+        if (outside <= 0.0) {
             return projection < 0.0 ? 0.0 : distanceKm;
-        if (projection >= 0.0)
+        }
+        if (projection >= 0.0) {
             return distanceKm;
+        }
         const double discriminant = projection * projection - outside;
-        if (discriminant < 0.0)
+        if (discriminant < 0.0) {
             return distanceKm;
+        }
         return std::min(distanceKm, std::max(0.0, -projection - std::sqrt(discriminant)));
     }
 
     Camera::Camera(double kmPerSceneUnit) : Camera(glm::dvec3{0.0, 0.0, 1.0}, glm::dvec3{0.0}, kmPerSceneUnit) {}
 
-    Camera::Camera(const Scene& scene, double kmPerSceneUnit, double initialDistanceKm, glm::dvec3 sunPositionKm)
+    Camera::Camera(const Scene& scene, double kmPerSceneUnit, double initialDistanceKm)
         : Camera(kmPerSceneUnit) {
-        sunPositionKm_ = sunPositionKm;
         const auto& earth = scene.getCelestialBody(Body::Earth);
+        const auto& sun = scene.getCelestialBody(Body::Sun);
+        sunPositionKm_ = sun.positionKm();
         reset(earth.positionKm(), sunPositionKm_, initialDistanceKm);
         resetToBody(earth);
     }
@@ -109,15 +115,17 @@ namespace solar {
     const CelestialBody* Camera::bodyUnderMouse(const Scene& scene) const {
         const int width = GetScreenWidth();
         const int height = GetScreenHeight();
-        if (width <= 0 || height <= 0)
+        if (width <= 0 || height <= 0) {
             return nullptr;
+        }
         const glm::dvec3 direction = mouseRayDirection(camera_, GetMousePosition(), width, height);
         const CelestialBody* closest = nullptr;
         double closestDistance = std::numeric_limits<double>::infinity();
         for (const auto& entry : scene.bodies()) {
             const auto* body = entry.get();
-            if (!body)
+            if (!body) {
                 continue;
+            }
             const double distance = raySphereDistance(positionKm_, direction, body->positionKm(),
                                                       body->radiusSceneUnits() * kmPerSceneUnit_);
             if (distance < closestDistance) {
@@ -154,8 +162,9 @@ namespace solar {
             orbitTarget_ = nullptr;
         }
         if (!acceptMouse && !orbitTarget_) {
-            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
                 orbitTarget_ = nullptr;
+            }
             return;
         }
 
@@ -167,8 +176,9 @@ namespace solar {
 
         if (orbitTarget_ && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
             const Vector2 mouse = GetMousePosition();
-            if (std::hypot(mouse.x - pressPosition_.x, mouse.y - pressPosition_.y) > 4.0f)
+            if (std::hypot(mouse.x - pressPosition_.x, mouse.y - pressPosition_.y) > 4.0f) {
                 dragging_ = true;
+            }
             if (dragging_) {
                 flying_ = false;
                 followedBody_ = orbitTarget_;
@@ -184,8 +194,9 @@ namespace solar {
             orbitTarget_ = nullptr;
         }
 
-        if (acceptMouse)
+        if (acceptMouse) {
             zoom(GetMouseWheelMove(), scene);
+        }
     }
 
     void Camera::flyToBody(const CelestialBody& body) {
@@ -197,20 +208,23 @@ namespace solar {
     void Camera::resetToBody(const CelestialBody& body) {
         const glm::dvec3 target = body.positionKm();
         const double distance = glm::length(positionKm_ - target);
-        if (glm::length(sunPositionKm_ - target) == 0.0 || distance == 0.0)
+        if (glm::length(sunPositionKm_ - target) == 0.0 || distance == 0.0) {
             return;
+        }
         reset(target, sunPositionKm_, distance);
         followedBody_ = &body;
         lastFollowedPosition_ = target;
     }
 
     void Camera::zoom(float wheelMovement, const Scene& scene) {
-        if (wheelMovement == 0.0f)
+        if (wheelMovement == 0.0f) {
             return;
+        }
         const glm::dvec3 view{camera_.target.x, camera_.target.y, camera_.target.z};
         const double viewDistance = glm::length(view);
-        if (viewDistance == 0.0)
+        if (viewDistance == 0.0) {
             return;
+        }
 
         // Scale each wheel step with distance, allowing both close inspection and long journeys.
         const double steps = std::clamp(static_cast<double>(wheelMovement), -10.0, 10.0);
@@ -219,8 +233,9 @@ namespace solar {
 
         for (const auto& entry : scene.bodies()) {
             const auto* body = entry.get();
-            if (!body)
+            if (!body) {
                 continue;
+            }
             const double radius = body->radiusSceneUnits();
             const double clearance = std::max(0.1, radius * 0.01);
             distance = limitCameraMovement(positionKm_, direction, distance, body->positionKm(),
@@ -228,15 +243,17 @@ namespace solar {
         }
 
         positionKm_ += direction * distance;
-        if (followedBody_)
+        if (followedBody_) {
             camera_.target = relativeScenePosition(followedBody_->positionKm());
+        }
         flying_ = false;
     }
 
     void Camera::flyTo(glm::dvec3 targetKm, float radiusSceneUnits) {
         const double distance = glm::length(positionKm_ - targetKm);
-        if (distance <= 0.0 || radiusSceneUnits <= 0.0f)
+        if (distance <= 0.0 || radiusSceneUnits <= 0.0f) {
             return;
+        }
         const glm::dvec3 view{camera_.target.x, camera_.target.y, camera_.target.z};
         const double viewLength = glm::length(view);
         flightStartDirection_ = viewLength > 0.0 ? view / viewLength : (targetKm - positionKm_) / distance;
@@ -247,8 +264,9 @@ namespace solar {
     }
 
     bool Camera::updateFlight(glm::dvec3 targetKm, float elapsedSeconds) {
-        if (!flying_)
+        if (!flying_) {
             return false;
+        }
         constexpr double turnDuration = 0.7;
         constexpr double travelDuration = 2.0;
         constexpr double duration = turnDuration + travelDuration;
@@ -265,8 +283,9 @@ namespace solar {
             glm::dvec3 axis = glm::cross(flightStartDirection_, destination);
             if (glm::length(axis) < 1e-8) {
                 axis = glm::dvec3{0.0, 1.0, 0.0} - flightStartDirection_ * flightStartDirection_.y;
-                if (glm::length(axis) < 1e-8)
+                if (glm::length(axis) < 1e-8) {
                     axis = glm::dvec3{1.0, 0.0, 0.0} - flightStartDirection_ * flightStartDirection_.x;
+                }
             }
             axis = glm::normalize(axis);
             const double t = flightElapsed_ / turnDuration;
@@ -299,14 +318,16 @@ namespace solar {
     }
 
     void Camera::orbit(glm::dvec3 targetKm, Vector2 mouseMovement) {
-        if (mouseMovement.x == 0.0f && mouseMovement.y == 0.0f)
+        if (mouseMovement.x == 0.0f && mouseMovement.y == 0.0f) {
             return;
+        }
 
         constexpr double radiansPerPixel = 0.007;
         const glm::dvec3 offset = positionKm_ - targetKm;
         const double distance = glm::length(offset);
-        if (distance == 0.0)
+        if (distance == 0.0) {
             return;
+        }
 
         alignCameraUp(camera_);
         glm::dvec3 up{camera_.up.x, camera_.up.y, camera_.up.z};

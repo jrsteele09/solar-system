@@ -3,16 +3,23 @@
 #include <algorithm>
 #include <future>
 #include <raylib.h>
+#include <string>
 #include <vector>
 
 namespace solar {
+    struct CloudSource {
+        std::string url;
+        int width = 0;
+        int height = 0;
+    };
+
     // Downloads cloud data on a worker; image decoding and texture upload happen on the render thread.
-    class EarthClouds {
+    class Clouds {
       public:
-        EarthClouds();
-        ~EarthClouds();
-        EarthClouds(const EarthClouds&) = delete;
-        EarthClouds& operator=(const EarthClouds&) = delete;
+        explicit Clouds(CloudSource source);
+        ~Clouds();
+        Clouds(const Clouds&) = delete;
+        Clouds& operator=(const Clouds&) = delete;
 
         void enableClouds(bool enabled);
         void refreshClouds();
@@ -26,11 +33,11 @@ namespace solar {
         void setCloudOpacity(float opacity) { cloudOpacity_ = std::clamp(opacity, 0.0f, 1.0f); }
 
       private:
+        CloudSource source_;
         std::future<std::vector<unsigned char>> cloudDownload_;
         Texture2D cloudTexture_{};
         bool cloudsEnabled_ = false;
         bool cloudRefreshFailed_ = false;
-        bool cloudHttpReady_ = false;
         float cloudOpacity_ = 0.58f;
     };
 } // namespace solar

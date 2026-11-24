@@ -19,9 +19,11 @@ namespace solar {
         constexpr double initialTaiMinusUtcSeconds = 10.0;
         constexpr double ttMinusTaiSeconds = 32.184;
         double taiMinusUtcSeconds = initialTaiMinusUtcSeconds;
-        for (double date : leapDates)
-            if (utc >= date)
+        for (double date : leapDates) {
+            if (utc >= date) {
                 ++taiMinusUtcSeconds;
+            }
+        }
         return utc - j2000UnixSeconds + taiMinusUtcSeconds + ttMinusTaiSeconds;
     }
 

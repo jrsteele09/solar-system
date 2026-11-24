@@ -27,12 +27,11 @@ int main() {
         const auto steadyStartTime = std::chrono::steady_clock::now();
 
         // Solar System Scene and controls
-        const glm::dvec3 sunPositionKm{0.0, 0.0, 0.0};
-        solar::Scene scene{startUtc, kmPerSceneUnit, sunPositionKm};
+        solar::Scene scene{startUtc, kmPerSceneUnit};
         solar::ControlsPanel controls;
 
         // Place the camera between Earth and the Sun
-        solar::Camera camera{scene, kmPerSceneUnit, initialCameraDistanceKm, sunPositionKm};
+        solar::Camera camera{scene, kmPerSceneUnit, initialCameraDistanceKm};
 
         // Main loop
         while (!WindowShouldClose()) {
