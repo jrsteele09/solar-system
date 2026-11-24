@@ -76,23 +76,24 @@ function(add_download name url)
 endfunction()
 
 add_download(pck00011.tpc "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc")
+add_download(pluto_nasa.jpg "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/p/l/pluto_color_mapmosaic.jpg")
 add_download(de442s.bsp "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442s.bsp")
 add_download(hip_main.dat "https://raw.githubusercontent.com/Lokilife/hipparcos-data/master/hip_main.dat")
-add_download(earth_daymap.jpg "https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg")
-add_download(moon.jpg "https://www.solarsystemscope.com/textures/download/2k_moon.jpg")
+add_download(8k_earth_daymap.jpg "https://www.solarsystemscope.com/textures/download/8k_earth_daymap.jpg")
+add_download(8k_moon.jpg "https://www.solarsystemscope.com/textures/download/8k_moon.jpg")
 add_download(earth_night.jpg "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_01deg.jpg")
-add_download(mercury.jpg "https://www.solarsystemscope.com/textures/download/2k_mercury.jpg")
-add_download(venus.jpg "https://www.solarsystemscope.com/textures/download/2k_venus_atmosphere.jpg")
-add_download(mars.jpg "https://www.solarsystemscope.com/textures/download/2k_mars.jpg")
-add_download(jupiter.jpg "https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg")
-add_download(saturn.jpg "https://www.solarsystemscope.com/textures/download/2k_saturn.jpg")
+add_download(8k_mercury.jpg "https://www.solarsystemscope.com/textures/download/8k_mercury.jpg")
+add_download(4k_venus_atmosphere.jpg "https://www.solarsystemscope.com/textures/download/4k_venus_atmosphere.jpg")
+add_download(8k_mars.jpg "https://www.solarsystemscope.com/textures/download/8k_mars.jpg")
+add_download(8k_jupiter.jpg "https://www.solarsystemscope.com/textures/download/8k_jupiter.jpg")
+add_download(8k_saturn.jpg "https://www.solarsystemscope.com/textures/download/8k_saturn.jpg")
 add_download(uranus.jpg "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg")
 add_download(neptune.jpg "https://www.solarsystemscope.com/textures/download/2k_neptune.jpg")
-add_download(saturn_ring.png "https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png")
+add_download(8k_saturn_ring_alpha.png "https://www.solarsystemscope.com/textures/download/8k_saturn_ring_alpha.png")
+
 add_custom_target(solar_assets DEPENDS ${DOWNLOADS})
 add_dependencies(solar_system solar_assets)
 configure_file(assets/fonts/Lato-Regular.ttf Lato-Regular.ttf COPYONLY)
-configure_file(assets/pluto/pluto_complete.jpg pluto_complete.jpg COPYONLY)
 configure_file(src/shader/surface_shader.vs surface_shader.vs COPYONLY)
 configure_file(src/shader/surface_shader.fs surface_shader.fs COPYONLY)
 configure_file(src/shader/sun_glow.fs sun_glow.fs COPYONLY)
@@ -100,18 +101,18 @@ target_compile_definitions(solar_system PRIVATE
     SOLAR_PCK_PATH="${CMAKE_CURRENT_BINARY_DIR}/pck00011.tpc"
     SOLAR_EPHEMERIS_PATH="${CMAKE_CURRENT_BINARY_DIR}/de442s.bsp"
     SOLAR_STAR_CATALOGUE_PATH="${CMAKE_CURRENT_BINARY_DIR}/hip_main.dat"
-    SOLAR_EARTH_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/earth_daymap.jpg"
+    SOLAR_EARTH_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_earth_daymap.jpg"
     SOLAR_EARTH_NIGHT_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/earth_night.jpg"
-    SOLAR_MERCURY_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/mercury.jpg"
-    SOLAR_VENUS_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/venus.jpg"
-    SOLAR_MARS_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/mars.jpg"
-    SOLAR_JUPITER_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/jupiter.jpg"
-    SOLAR_SATURN_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/saturn.jpg"
+    SOLAR_MERCURY_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_mercury.jpg"
+    SOLAR_VENUS_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/4k_venus_atmosphere.jpg"
+    SOLAR_MARS_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_mars.jpg"
+    SOLAR_JUPITER_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_jupiter.jpg"
+    SOLAR_SATURN_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_saturn.jpg"
     SOLAR_URANUS_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/uranus.jpg"
     SOLAR_NEPTUNE_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/neptune.jpg"
-    SOLAR_PLUTO_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/pluto_complete.jpg"
-    SOLAR_SATURN_RING_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/saturn_ring.png"
-    SOLAR_MOON_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/moon.jpg"
+    SOLAR_PLUTO_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/pluto_nasa.jpg"
+    SOLAR_SATURN_RING_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_saturn_ring_alpha.png"
+    SOLAR_MOON_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/8k_moon.jpg"
     SOLAR_UI_FONT_PATH="${CMAKE_CURRENT_BINARY_DIR}/Lato-Regular.ttf"
     SOLAR_SURFACE_SHADER_VERTEX_PATH="${CMAKE_CURRENT_BINARY_DIR}/surface_shader.vs"
     SOLAR_SURFACE_SHADER_FRAGMENT_PATH="${CMAKE_CURRENT_BINARY_DIR}/surface_shader.fs"

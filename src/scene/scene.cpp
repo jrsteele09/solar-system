@@ -54,7 +54,16 @@ namespace solar {
                 .position(ephemeris_.position(id, utcSeconds))
                 .surface(texture)
                 .surfaceShader(surfaceShader_)
-                .orientation([id](double utc, double) { return orientation(id, utc); });
+                .orientation([id](double utc, double) {
+                    auto rotation = orientation(id, utc);
+                    if (id == Body::PlutoSystem) {
+                        // NASA's Pluto map is centred near 180 degrees longitude;
+                        // the sphere mesh places the centre of its map at zero.
+                        rotation[0] = -rotation[0];
+                        rotation[2] = -rotation[2];
+                    }
+                    return rotation;
+                });
             return builder;
         };
 

@@ -51,15 +51,18 @@ build downloads any missing data into the build directory with curl:
   (ESA, 1997), from a [catalogue mirror](https://github.com/Lokilife/hipparcos-data).
 - Planet, Moon and Saturn ring textures from [Solar System Scope / INOVE](https://www.solarsystemscope.com/textures/),
   licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+  Mercury, Earth, Mars and the Moon use 8K maps; Venus, Jupiter and Saturn use
+  4K maps (the provider names the Jupiter and Saturn files `8k`). Uranus and
+  Neptune use 2K maps.
 - NASA's [Black Marble 2016](https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_01deg.jpg)
   composite for Earth's night lights.
 
 The live cloud map comes from [Live Cloud Maps](https://clouds.matteason.co.uk/images/2048x1024/clouds.jpg).
 Contains modified EUMETSAT data.
 
-Pluto uses a bundled AI-assisted illustration derived from the NASA/JHUAPL/SwRI
-[New Horizons global colour map](https://science.nasa.gov/resource/pluto-global-color-map/).
-It fills areas without image coverage and alters some observed detail.
+Pluto uses the [New Horizons global colour map](https://science.nasa.gov/resource/pluto-global-color-map/)
+from NASA/JHUAPL/SwRI. Coverage varies in resolution, and unobserved areas near
+the south pole are black in the source map.
 
 ## Ephemeris
 
