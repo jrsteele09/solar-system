@@ -24,8 +24,9 @@ namespace solar {
 
         shader_.locs[SHADER_LOC_MAP_EMISSION] = GetShaderLocation(shader_, nightMapUniform);
         shader_.locs[SHADER_LOC_MAP_OCCLUSION] = GetShaderLocation(shader_, "cloudMap");
-        if (sunPositionLocation_ < 0 || nightLightsLocation_ < 0 || shadowsLocation_ < 0 || cloudsLocation_ < 0 || cloudOpacityLocation_ < 0 ||
-            shader_.locs[SHADER_LOC_MAP_OCCLUSION] < 0 || shader_.locs[SHADER_LOC_MAP_EMISSION] < 0) {
+        if (sunPositionLocation_ < 0 || nightLightsLocation_ < 0 || shadowsLocation_ < 0 || cloudsLocation_ < 0 ||
+            cloudOpacityLocation_ < 0 || shader_.locs[SHADER_LOC_MAP_OCCLUSION] < 0 ||
+            shader_.locs[SHADER_LOC_MAP_EMISSION] < 0) {
             UnloadShader(shader_);
             throw std::runtime_error{"Surface shader is missing a required uniform"};
         }
