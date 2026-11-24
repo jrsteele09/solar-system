@@ -22,7 +22,9 @@ namespace solar {
     static Rectangle cloudsBounds(Rectangle panel, bool enabled) {
         return {panel.x + 12, panel.y + 186, enabled ? 100.0f : panel.width - 24, 32};
     }
-    static Rectangle refreshCloudsBounds(Rectangle panel) { return {panel.x + 118, panel.y + 186, panel.width - 130, 32}; }
+    static Rectangle refreshCloudsBounds(Rectangle panel) {
+        return {panel.x + 118, panel.y + 186, panel.width - 130, 32};
+    }
     static Rectangle opacityBounds(Rectangle panel) { return {panel.x + 12, panel.y + 222, panel.width - 24, 44}; }
     static Rectangle opacityTrack(Rectangle panel) { return {panel.x + 20, panel.y + 251, panel.width - 40, 4}; }
     static Rectangle shadowBounds(Rectangle panel, bool earthNearest, bool showOpacity) {
@@ -44,7 +46,7 @@ namespace solar {
     }
 
     static const CelestialBody* selectedBody(std::span<const std::unique_ptr<CelestialBody>> bodies,
-                                      const Camera& camera) {
+                                             const Camera& camera) {
         for (const auto& entry : bodies)
             if (entry && entry.get() == camera.followedBody())
                 return entry.get();
@@ -157,8 +159,11 @@ namespace solar {
             return;
         }
         const CelestialBody* selected = selectedBody(bodies, camera);
-        if (selected && selected->id() != Body::Sun && CheckCollisionPointRec(mouse, resetBounds(panel)))
-            camera.resetToBody(*selected);
+        if (selected && selected->id() != Body::Sun && CheckCollisionPointRec(mouse, resetBounds(panel))) {
+            // View the Moon from Earth; view the planets from the Sun.
+            const auto& viewpoint = selected->id() == Body::Moon ? earth : scene.getCelestialBody(Body::Sun);
+            camera.resetToBody(*selected, viewpoint.positionKm());
+        }
         if (earthNearest && CheckCollisionPointRec(mouse, lightsBounds(panel)))
             earth.setLightsEnabled(!earth.lightsEnabled());
         if (earthNearest && earth.clouds().cloudsEnabled() &&

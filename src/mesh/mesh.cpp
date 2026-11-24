@@ -33,7 +33,9 @@ namespace solar {
 
     Mesh Mesh::createRings(double innerRadius, double outerRadius, int segments) {
         std::vector<glm::vec3> vertices;
+        std::vector<glm::vec2> texcoords;
         vertices.reserve(segments * 6);
+        texcoords.reserve(segments * 6);
 
         for (int i = 0; i < segments; ++i) {
             const float a = 2.0f * std::numbers::pi_v<float> * i / segments;
@@ -57,8 +59,14 @@ namespace solar {
             vertices.push_back({inner_a_x, 0.0f, inner_a_z});
             vertices.push_back({inner_b_x, 0.0f, inner_b_z});
             vertices.push_back({outer_b_x, 0.0f, outer_b_z});
+
+            // The ring image is a radial strip: left is inner, right is outer.
+            texcoords.insert(texcoords.end(), {{0.0f, 0.5f}, {1.0f, 0.5f}, {1.0f, 0.5f},
+                                               {0.0f, 0.5f}, {0.0f, 0.5f}, {1.0f, 0.5f}});
         }
 
-        return fromTriangles(vertices);
+        Mesh mesh = fromTriangles(vertices);
+        mesh.texcoords_ = std::move(texcoords);
+        return mesh;
     }
 } // namespace solar

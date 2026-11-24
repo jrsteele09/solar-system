@@ -2,13 +2,18 @@
 #include "coordinates.hpp"
 #include "time.hpp"
 
+#include <SpiceUsr.h>
 #include <cmath>
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <numbers>
+#include <stdexcept>
+#include <string>
 
 namespace solar {
 
+    // Keep Earth separate from the generic PCK models: this ERFA-derived
+    // calculation includes precession and preserves the existing Earth orientation.
     // Derived from ERFA (see erfa.txt in this folder), itself derived from IAU SOFA:
     //  - eraEra00: Earth rotation angle (`rotation`)
     //  - eraGmst06: Greenwich mean sidereal time (`sidereal`, polynomial series)
@@ -17,7 +22,7 @@ namespace solar {
     // precession matrix is composed with glm rotations instead of ERFA's rotation-matrix
     // helpers (eraRz/eraRx); and the result is a glm matrix in the scene's coordinate frame
     // for rendering. UTC stands in for UT1, and nutation and polar motion are omitted.
-    glm::mat4 earthOrientation(double utc, double /*elapsedSeconds*/) {
+    static glm::mat4 earthOrientation(double utc) {
         const double days = (utc - j2000UnixSeconds) / secondsPerDay;
         const double t = terrestrialTime(utc) / (secondsPerDay * 36525.0);
         const double rotation =
@@ -54,69 +59,86 @@ namespace solar {
         return result;
     }
 
-    glm::mat4 moonOrientation(double /*utcSeconds*/, double elapsedSeconds) {
-        constexpr double radians = std::numbers::pi_v<double> / 180.0;
-        constexpr double poleRightAscension = 269.9949 * radians;
-        constexpr double poleDeclination = 66.5392 * radians;
-        constexpr double earthObliquity = 23.43928 * radians;
-        constexpr double rotationDegreesPerDay = 13.17635815;
-        constexpr double secondsPerDay = 86400.0;
-
-        // Turn the Moon's rotation pole into the scene's coordinate system.
-        const glm::dvec3 equatorial{std::cos(poleDeclination) * std::cos(poleRightAscension),
-                                    std::cos(poleDeclination) * std::sin(poleRightAscension),
-                                    std::sin(poleDeclination)};
-        const glm::dvec3 pole{equatorial.x,
-                              -std::sin(earthObliquity) * equatorial.y + std::cos(earthObliquity) * equatorial.z,
-                              -(std::cos(earthObliquity) * equatorial.y + std::sin(earthObliquity) * equatorial.z)};
-        const glm::dvec3 axis = glm::cross(glm::dvec3{0.0, 1.0, 0.0}, pole);
-        const double axisLength = glm::length(axis);
-        const double tilt = std::atan2(axisLength, pole.y);
-        const glm::dvec3 tiltAxis = axisLength > 0.000001 ? axis / axisLength : glm::dvec3{1.0, 0.0, 0.0};
-
-        // The starting surface angle is illustrative.
-        const double period = secondsPerDay * 360.0 / rotationDegreesPerDay;
-        const double spin = std::fmod(elapsedSeconds, period) * (2.0 * std::numbers::pi_v<double>) / period;
-        const glm::dmat4 identity{1.0};
-        return glm::mat4(glm::rotate(identity, tilt, tiltAxis) *
-                         glm::rotate(identity, spin, glm::dvec3{0.0, 1.0, 0.0}));
+    static void checkSpice() {
+        if (failed_c()) {
+            SpiceChar message[1841]{};
+            getmsg_c("LONG", sizeof(message), message);
+            reset_c();
+            throw std::runtime_error{std::string{"SPICE orientation error: "} + message};
+        }
     }
 
-    glm::mat4 planetOrientation(Body body, double elapsedSeconds) {
-        // IAU pole directions and signed sidereal rotation rates, from NAIF pck00011.tpc.
-        struct Spin {
-            Body body;
-            double poleRa, poleDec, degreesPerDay;
-        };
-        constexpr Spin spins[] = {
-            {Body::Mercury, 281.0103, 61.4155, 6.1385108},
-            {Body::Venus, 272.76, 67.16, -1.4813688},
-            {Body::MarsSystem, 317.269202, 54.432516, 350.891982443297},
-            {Body::JupiterSystem, 268.056595, 64.495303, 870.536},
-            {Body::SaturnSystem, 40.589, 83.537, 810.7939024},
-            {Body::UranusSystem, 257.311, -15.175, -501.1600928},
-            {Body::NeptuneSystem, 299.36, 43.46, 541.1397757},
-            {Body::PlutoSystem, 132.993, -6.163, 56.3625225},
-        };
-        for (const auto& spin : spins) {
-            if (spin.body != body) {
-                continue;
-            }
-            constexpr double radiansPerDegree = std::numbers::pi_v<double> / 180.0;
-            const double ra = spin.poleRa * radiansPerDegree;
-            const double dec = spin.poleDec * radiansPerDegree;
-            const glm::dvec3 pole =
-                toScene({std::cos(dec) * std::cos(ra), std::cos(dec) * std::sin(ra), std::sin(dec)});
-            const glm::dvec3 axis = glm::cross(glm::dvec3{0, 1, 0}, pole);
-            const double axisLength = glm::length(axis);
-            const double tilt = std::atan2(axisLength, pole.y);
-            const glm::dvec3 tiltAxis = axisLength > 1e-6 ? axis / axisLength : glm::dvec3{1, 0, 0};
-            const double periodSeconds = secondsPerDay * 360.0 / spin.degreesPerDay;
-            const double angle =
-                std::fmod(elapsedSeconds, std::abs(periodSeconds)) * (2.0 * std::numbers::pi_v<double>) / periodSeconds;
-            const glm::dmat4 identity{1.0};
-            return glm::mat4(glm::rotate(identity, tilt, tiltAxis) * glm::rotate(identity, angle, glm::dvec3{0, 1, 0}));
+    // SPICE is NASA/JPL NAIF's observation-geometry toolkit. The text PCK
+    // pck00011.tpc comes from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/.
+    // It supplies IAU pole and prime-meridian models, including the Moon's
+    // periodic terms. Load it once before evaluating body-fixed frames.
+    void loadOrientationModels(const char* pckPath) {
+        SpiceChar action[] = "RETURN";
+        SpiceChar output[] = "NONE";
+        erract_c("SET", 0, action);
+        errprt_c("SET", 0, output);
+        furnsh_c(pckPath);
+        checkSpice();
+    }
+
+    glm::mat4 orientation(Body body, double utcSeconds) {
+        if (body == Body::Earth) {
+            return earthOrientation(utcSeconds);
         }
-        return glm::mat4{1.0f};
+
+        const char* frame = nullptr;
+        switch (body) {
+        case Body::Mercury:
+            frame = "IAU_MERCURY";
+            break;
+        case Body::Venus:
+            frame = "IAU_VENUS";
+            break;
+        case Body::Moon:
+            frame = "IAU_MOON";
+            break;
+        case Body::MarsSystem:
+            frame = "IAU_MARS";
+            break;
+        case Body::JupiterSystem:
+            frame = "IAU_JUPITER";
+            break;
+        case Body::SaturnSystem:
+            frame = "IAU_SATURN";
+            break;
+        case Body::UranusSystem:
+            frame = "IAU_URANUS";
+            break;
+        case Body::NeptuneSystem:
+            frame = "IAU_NEPTUNE";
+            break;
+        case Body::PlutoSystem:
+            frame = "IAU_PLUTO";
+            break;
+        case Body::Sun:
+            frame = "IAU_SUN";
+            break;
+        case Body::Earth:
+            return earthOrientation(utcSeconds);
+        }
+        if (!frame || !std::isfinite(utcSeconds)) {
+            throw std::invalid_argument{"Invalid body or orientation time"};
+        }
+
+        // Evaluate the PCK body-fixed frame relative to J2000 at TDB seconds
+        // past J2000. The position ephemeris uses the same time conversion.
+        SpiceDouble rotation[3][3];
+        pxform_c(frame, "J2000", ephemerisTime(utcSeconds), rotation);
+        checkSpice();
+        // Mesh +X is longitude zero, +Y north, and -Z is east.
+        const auto axis = [&](int column) {
+            return toScene({rotation[0][column], rotation[1][column], rotation[2][column]});
+        };
+        const auto x = axis(0), y = axis(2), z = -axis(1);
+        glm::mat4 result{1.0f};
+        result[0] = glm::vec4(glm::vec3(x), 0);
+        result[1] = glm::vec4(glm::vec3(y), 0);
+        result[2] = glm::vec4(glm::vec3(z), 0);
+        return result;
     }
 } // namespace solar

@@ -151,9 +151,9 @@ namespace solar {
         update(ephemeris.position(id_, utc), rotation);
         if (clouds_) {
             clouds_->checkCloudDownload();
-            if (clouds_->cloudsVisible()) {
-                setMaterialTexture(MATERIAL_MAP_OCCLUSION, clouds_->cloudTexture());
-            }
+            // Always bind a valid texture, including while clouds are disabled or loading.
+            setMaterialTexture(MATERIAL_MAP_OCCLUSION,
+                               clouds_->cloudsVisible() ? clouds_->cloudTexture() : surface_->texture());
         }
     }
 
@@ -202,6 +202,10 @@ namespace solar {
             body->setMaterialTexture(MATERIAL_MAP_ALBEDO, body->surface_->texture());
             if (surfaceShader_) {
                 body->model_.materials[0].shader = surfaceShader_->shader();
+                // The shader declares both optional samplers for every body. Bind
+                // valid fallbacks even when their effects are disabled.
+                body->setMaterialTexture(MATERIAL_MAP_EMISSION, body->surface_->texture());
+                body->setMaterialTexture(MATERIAL_MAP_OCCLUSION, body->surface_->texture());
             }
         }
 

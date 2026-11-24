@@ -30,6 +30,8 @@ namespace solar {
           surfaceShader_(SOLAR_SURFACE_SHADER_VERTEX_PATH, SOLAR_SURFACE_SHADER_FRAGMENT_PATH),
           sunGlow_(SOLAR_SUN_GLOW_PATH), stars_(SOLAR_STAR_CATALOGUE_PATH) {
 
+        loadOrientationModels(SOLAR_PCK_PATH);
+
         // Make the Sun at its barycentric position
         const Mesh sunSphereMesh = Mesh::createSphere(
             1.0f, 32, 64); // The Sun is drawn with a glow, so it doesn't need a high-resolution mesh.
@@ -52,7 +54,7 @@ namespace solar {
                 .position(ephemeris_.position(id, utcSeconds))
                 .surface(texture)
                 .surfaceShader(surfaceShader_)
-                .orientation([id](double, double elapsed) { return planetOrientation(id, elapsed); });
+                .orientation([id](double utc, double) { return orientation(id, utc); });
             return builder;
         };
 
@@ -60,11 +62,10 @@ namespace solar {
         bodies_.push_back(body(Body::Mercury, mercuryRadiusKm, SOLAR_MERCURY_TEXTURE_PATH).build());
         bodies_.push_back(body(Body::Venus, venusRadiusKm, SOLAR_VENUS_TEXTURE_PATH).build());
         bodies_.push_back(body(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH)
-                              .orientation(earthOrientation)
                               .nightLights(SOLAR_EARTH_NIGHT_TEXTURE_PATH)
                               .clouds({earthCloudsUrl, earthCloudsWidth, earthCloudsHeight})
                               .build());
-        bodies_.push_back(body(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH).orientation(moonOrientation).build());
+        bodies_.push_back(body(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH).build());
         bodies_.push_back(body(Body::MarsSystem, marsRadiusKm, SOLAR_MARS_TEXTURE_PATH).build());
         bodies_.push_back(body(Body::JupiterSystem, jupiterRadiusKm, SOLAR_JUPITER_TEXTURE_PATH).build());
         bodies_.push_back(body(Body::SaturnSystem, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH)

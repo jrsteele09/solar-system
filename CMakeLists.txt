@@ -20,6 +20,19 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(glm raylib)
+# Build CSPICE from its source mirror without importing its standalone CMake project.
+FetchContent_Declare(cspice_source
+    GIT_REPOSITORY https://github.com/tudat-team/cspice-cmake.git
+    GIT_TAG e44da83b8a7a420fdddf02d2e3accebd0ab86e5e
+    SOURCE_SUBDIR unused
+)
+FetchContent_MakeAvailable(cspice_source)
+file(GLOB CSPICE_SOURCES CONFIGURE_DEPENDS "${cspice_source_SOURCE_DIR}/src/cspice/*.c")
+add_library(cspice STATIC ${CSPICE_SOURCES})
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(cspice PRIVATE -Wno-implicit-int -Wno-implicit-function-declaration)
+endif()
+target_include_directories(cspice PUBLIC "${cspice_source_SOURCE_DIR}/include/cspice")
 find_package(CURL 7.85 REQUIRED)
 
 # Earth and other planet surface maps use JPEG images.
@@ -44,7 +57,7 @@ add_executable(solar_system
 )
 
 target_include_directories(solar_system PRIVATE src)
-target_link_libraries(solar_system PRIVATE glm::glm raylib CURL::libcurl)
+target_link_libraries(solar_system PRIVATE glm::glm raylib CURL::libcurl cspice)
 
 target_compile_definitions(solar_system PRIVATE GLM_FORCE_INTRINSICS)
 target_compile_definitions(solar_system PRIVATE GLM_FORCE_CTOR_INIT)
@@ -62,6 +75,7 @@ function(add_download name url)
     set(DOWNLOADS ${DOWNLOADS} "${CMAKE_CURRENT_BINARY_DIR}/${name}" PARENT_SCOPE)
 endfunction()
 
+add_download(pck00011.tpc "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc")
 add_download(de442s.bsp "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442s.bsp")
 add_download(hip_main.dat "https://raw.githubusercontent.com/Lokilife/hipparcos-data/master/hip_main.dat")
 add_download(earth_daymap.jpg "https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg")
@@ -83,6 +97,7 @@ configure_file(src/shader/surface_shader.vs surface_shader.vs COPYONLY)
 configure_file(src/shader/surface_shader.fs surface_shader.fs COPYONLY)
 configure_file(src/shader/sun_glow.fs sun_glow.fs COPYONLY)
 target_compile_definitions(solar_system PRIVATE
+    SOLAR_PCK_PATH="${CMAKE_CURRENT_BINARY_DIR}/pck00011.tpc"
     SOLAR_EPHEMERIS_PATH="${CMAKE_CURRENT_BINARY_DIR}/de442s.bsp"
     SOLAR_STAR_CATALOGUE_PATH="${CMAKE_CURRENT_BINARY_DIR}/hip_main.dat"
     SOLAR_EARTH_TEXTURE_PATH="${CMAKE_CURRENT_BINARY_DIR}/earth_daymap.jpg"
@@ -103,3 +118,15 @@ target_compile_definitions(solar_system PRIVATE
     SOLAR_SUN_GLOW_PATH="${CMAKE_CURRENT_BINARY_DIR}/sun_glow.fs"
 )
 
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(orientation_test tests/orientation_test.cpp
+        src/astronomy/planet_orientation.cpp src/astronomy/ephemeris.cpp src/mesh/mesh.cpp)
+    target_include_directories(orientation_test PRIVATE src)
+    target_link_libraries(orientation_test PRIVATE glm::glm cspice)
+    target_compile_definitions(orientation_test PRIVATE
+        SOLAR_PCK_PATH="${CMAKE_CURRENT_BINARY_DIR}/pck00011.tpc"
+        SOLAR_EPHEMERIS_PATH="${CMAKE_CURRENT_BINARY_DIR}/de442s.bsp")
+    add_dependencies(orientation_test solar_assets)
+    add_test(NAME orientation COMMAND orientation_test)
+endif()

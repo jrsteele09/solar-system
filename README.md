@@ -17,12 +17,34 @@ cmake --build build
 ./build/solar_system
 ```
 
+## Third-party libraries
+
+- [raylib](https://www.raylib.com/) provides the window, input, rendering,
+  shaders, textures and font handling. CMake fetches version 6.2. It uses the
+  [zlib licence](https://github.com/raysan5/raylib/blob/6.2/LICENSE).
+- [GLM](https://github.com/g-truc/glm) provides vector and matrix mathematics
+  for positions, camera movement and orientations. CMake fetches version 1.0.2;
+  it is available under the [MIT licence](https://github.com/g-truc/glm/blob/1.0.2/copying.txt).
+- [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html), the C version of
+  NASA/JPL's SPICE toolkit, reads the planetary constants kernel and calculates
+  the Moon's and planets' orientations. CMake fetches a pinned
+  [source mirror](https://github.com/tudat-team/cspice-cmake) and builds it
+  locally. See [NAIF's rules for using SPICE](https://naif.jpl.nasa.gov/naif/rules.html).
+- [ERFA](https://github.com/liberfa/erfa) is the source of the adapted Earth
+  rotation and precession formulas in `src/astronomy/planet_orientation.cpp`.
+  The project does not link the ERFA library. Its three-clause BSD licence and
+  notice are included in [erfa.txt](src/astronomy/erfa.txt).
+- [libcurl](https://curl.se/libcurl/) downloads live cloud maps over HTTPS. It
+  must be installed separately and is used under the [curl licence](https://curl.se/docs/copyright.html).
+  The `curl` command also downloads build assets.
+
 ## Data and downloads
 
-CMake downloads [GLM 1.0.2](https://github.com/g-truc/glm) and
+CMake downloads [GLM 1.0.2](https://github.com/g-truc/glm), [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html), and
 [raylib 6.2](https://github.com/raysan5/raylib) during configuration. The first
 build downloads any missing data into the build directory with curl:
 
+- [Planetary constants kernel](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc) for body orientations.
 - [DE442s ephemeris](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442s.bsp)
   from NASA JPL, for body positions. See [Ephemeris](#ephemeris).
 - [Hipparcos star catalogue](https://heasarc.gsfc.nasa.gov/W3Browse/star-catalog/hipparcos.html)
@@ -45,13 +67,6 @@ The application uses NASA JPL's DE442s planetary ephemeris (`de442s.bsp`) to
 find the positions of solar system bodies over time.
 
 Source: https://ssd.jpl.nasa.gov/planets/eph_export.html
-
-## Accuracy
-
-The outer planets use DE442s system barycentres as approximations to their
-centres. Their axial tilts and rotation rates use IAU models, but their starting
-surface longitudes are illustrative. Stars use their Hipparcos catalogue
-directions at epoch 1991.25, without proper motion or parallax.
 
 ## Licence
 
@@ -99,6 +114,8 @@ flowchart TD
     Shaders --> Raylib
     Ephemeris --> GLM[GLM: mathematics]
     Astronomy --> GLM[GLM: mathematics]
+    Astronomy --> CSPICE[CSPICE: body orientations]
+    CSPICE --> PCK[Planetary constants kernel]
     Camera --> GLM
     Stars --> GLM
 ```

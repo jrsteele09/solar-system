@@ -23,9 +23,9 @@ namespace solar {
         // Click a body to fly to it, drag it to orbit, or scroll to zoom.
         void updateOrbitControls(const Scene& scene, bool acceptMouse = true);
 
-        // Fly to a body or face it from the Sun's direction at the current distance.
+        // Fly to a body or face it from a chosen direction at the current distance.
         void flyToBody(const CelestialBody& body);
-        void resetToBody(const CelestialBody& body);
+        void resetToBody(const CelestialBody& body, glm::dvec3 viewFromKm);
         const CelestialBody* followedBody() const { return followedBody_; }
 
         // Start and advance a flight toward a moving target.
@@ -49,7 +49,6 @@ namespace solar {
 
       private:
         glm::dvec3 positionKm_;
-        glm::dvec3 sunPositionKm_{0.0};
         double kmPerSceneUnit_;
         Camera3D camera_{};
         const CelestialBody* orbitTarget_ = nullptr;

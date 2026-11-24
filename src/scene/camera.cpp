@@ -81,9 +81,8 @@ namespace solar {
         : Camera(kmPerSceneUnit) {
         const auto& earth = scene.getCelestialBody(Body::Earth);
         const auto& sun = scene.getCelestialBody(Body::Sun);
-        sunPositionKm_ = sun.positionKm();
-        reset(earth.positionKm(), sunPositionKm_, initialDistanceKm);
-        resetToBody(earth);
+        reset(earth.positionKm(), sun.positionKm(), initialDistanceKm);
+        resetToBody(earth, sun.positionKm());
     }
 
     Camera::Camera(glm::dvec3 positionKm, glm::dvec3 targetKm, double kmPerSceneUnit)
@@ -205,13 +204,13 @@ namespace solar {
         flyTo(lastFollowedPosition_, body.radiusSceneUnits());
     }
 
-    void Camera::resetToBody(const CelestialBody& body) {
+    void Camera::resetToBody(const CelestialBody& body, glm::dvec3 viewFromKm) {
         const glm::dvec3 target = body.positionKm();
         const double distance = glm::length(positionKm_ - target);
-        if (glm::length(sunPositionKm_ - target) == 0.0 || distance == 0.0) {
+        if (glm::length(viewFromKm - target) == 0.0 || distance == 0.0) {
             return;
         }
-        reset(target, sunPositionKm_, distance);
+        reset(target, viewFromKm, distance);
         followedBody_ = &body;
         lastFollowedPosition_ = target;
     }
