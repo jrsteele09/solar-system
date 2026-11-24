@@ -78,9 +78,11 @@ namespace solar {
     const CelestialBody& Scene::getCelestialBody(Body id) const {
         const auto entry =
             std::find_if(bodies_.begin(), bodies_.end(), [id](const auto& item) { return item->id() == id; });
+
         if (entry == bodies_.end()) {
             throw std::out_of_range{"Body is not in the scene"};
         }
+
         return **entry;
     }
 
