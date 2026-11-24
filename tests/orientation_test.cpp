@@ -1,8 +1,8 @@
-#include "astronomy/planet_orientation.hpp"
 #include "astronomy/ephemeris.hpp"
+#include "astronomy/planet_orientation.hpp"
 #include "mesh/mesh.hpp"
-#include <glm/geometric.hpp>
 #include <cmath>
+#include <glm/geometric.hpp>
 #include <iostream>
 #include <stdexcept>
 
@@ -19,22 +19,23 @@ int main() {
         }
         solar::loadOrientationModels(SOLAR_PCK_PATH);
         solar::Ephemeris ephemeris{SOLAR_EPHEMERIS_PATH};
-        constexpr solar::Body bodies[] = {solar::Body::Mercury, solar::Body::Venus, solar::Body::Earth,
-            solar::Body::Moon, solar::Body::MarsSystem, solar::Body::JupiterSystem, solar::Body::SaturnSystem,
-            solar::Body::UranusSystem, solar::Body::NeptuneSystem, solar::Body::PlutoSystem};
+        constexpr solar::Body bodies[] = {solar::Body::Mercury,       solar::Body::Venus,
+                                          solar::Body::Earth,         solar::Body::Moon,
+                                          solar::Body::MarsSystem,    solar::Body::JupiterSystem,
+                                          solar::Body::SaturnSystem,  solar::Body::UranusSystem,
+                                          solar::Body::NeptuneSystem, solar::Body::PlutoSystem};
         for (double utc : {946728000.0, 1735689600.0, 1893456000.0}) {
             for (auto body : bodies) {
                 const auto m = solar::orientation(body, utc);
                 const glm::vec3 x{m[0]}, y{m[1]}, z{m[2]};
-                if (!std::isfinite(x.x) || std::abs(glm::length(x) - 1) > 1e-5 ||
-                    std::abs(glm::length(y) - 1) > 1e-5 || std::abs(glm::dot(x, y)) > 1e-5 ||
-                    glm::dot(glm::cross(x, y), z) < 0.99999f)
+                if (!std::isfinite(x.x) || std::abs(glm::length(x) - 1) > 1e-5 || std::abs(glm::length(y) - 1) > 1e-5 ||
+                    std::abs(glm::dot(x, y)) > 1e-5 || glm::dot(glm::cross(x, y), z) < 0.99999f)
                     throw std::runtime_error{"Invalid body orientation matrix"};
             }
             // The Moon's zero-longitude face should point roughly toward Earth.
             const auto moon = solar::orientation(solar::Body::Moon, utc);
             const auto towardEarth = glm::normalize(ephemeris.position(solar::Body::Earth, utc) -
-                                                     ephemeris.position(solar::Body::Moon, utc));
+                                                    ephemeris.position(solar::Body::Moon, utc));
             if (glm::dot(glm::dvec3{moon[0]}, towardEarth) < 0.95)
                 throw std::runtime_error{"Lunar prime meridian does not face Earth"};
         }
