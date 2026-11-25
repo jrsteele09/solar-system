@@ -1,4 +1,4 @@
-#include "astronomy/ephemeris.hpp"
+#include "astronomy/moons.hpp"
 #include "astronomy/planet_orientation.hpp"
 #include "mesh/mesh.hpp"
 #include <cmath>
@@ -18,7 +18,7 @@ int main() {
                 throw std::runtime_error{"Incorrect radial ring texture coordinate"};
         }
         solar::loadOrientationModels(SOLAR_PCK_PATH);
-        solar::Ephemeris ephemeris{SOLAR_EPHEMERIS_PATH};
+        solar::Ephemeris ephemeris{SOLAR_EPHEMERIS_PATH, SOLAR_SATELLITE_PATH};
         constexpr solar::Body bodies[] = {solar::Body::Mercury,       solar::Body::Venus,
                                           solar::Body::Earth,         solar::Body::Moon,
                                           solar::Body::MarsSystem,    solar::Body::JupiterSystem,
@@ -32,6 +32,25 @@ int main() {
                     std::abs(glm::dot(x, y)) > 1e-5 || glm::dot(glm::cross(x, y), z) < 0.99999f)
                     throw std::runtime_error{"Invalid body orientation matrix"};
             }
+            for (const auto& moon : solar::majorMoons) {
+                const auto relativePosition = [&](double time) {
+                    return ephemeris.position(moon.id, time) - ephemeris.position(moon.planet, time);
+                };
+                const auto offset = relativePosition(utc);
+                const auto distance = glm::length(offset);
+                const auto axes = solar::bodyAxesKm(moon.id);
+                const auto state = solar::orientation(moon.id, utc);
+                if (!(distance > 9000 && distance < 3800000 && glm::length(relativePosition(utc + 3600) - offset) > 100 &&
+                      axes.x >= axes.y && axes.y > 0 && axes.z > 0 &&
+                      glm::dot(glm::cross(glm::vec3(state[0]), glm::vec3(state[1])), glm::vec3(state[2])) > 0.99999f))
+                    throw std::runtime_error{std::string{"Invalid orbit, axes or orientation for "} + moon.name};
+            }
+            // Pluto and Charon both orbit a barycentre outside Pluto's surface.
+            const double plutoOffset = glm::length(ephemeris.position(solar::Body::Pluto, utc) -
+                                                   ephemeris.position(solar::Body::PlutoSystem, utc));
+            if (!(plutoOffset > 2000 && plutoOffset < 2300))
+                throw std::runtime_error{"Incorrect Pluto barycentre offset"};
+
             // The Moon's zero-longitude face should point roughly toward Earth.
             const auto moon = solar::orientation(solar::Body::Moon, utc);
             const auto towardEarth = glm::normalize(ephemeris.position(solar::Body::Earth, utc) -

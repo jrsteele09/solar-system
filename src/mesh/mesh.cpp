@@ -2,8 +2,14 @@
 
 #include <glm/geometric.hpp>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <fstream>
 #include <numbers>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace solar {
@@ -29,6 +35,86 @@ namespace solar {
         }
 
         return Mesh{std::vector<glm::vec3>{vertices.begin(), vertices.end()}};
+    }
+
+    Mesh Mesh::loadSbmtObj(const std::filesystem::path& path) {
+        std::ifstream input(path);
+        if (!input)
+            throw std::runtime_error{"Cannot open moon shape model: " + path.string()};
+
+        // SBMT publishes body-fixed vertices in kilometres and triangular plates
+        // with one-based vertex indices. The files contain no normals or UVs.
+        struct Vertex {
+            glm::vec3 position;
+            glm::vec2 uv;
+            glm::vec3 normal{0.0f};
+        };
+        using Face = std::array<std::size_t, 3>;
+        std::vector<Vertex> points;
+        std::vector<Face> faces;
+        const auto invalid = [&] { return std::runtime_error{"Invalid SBMT moon shape model: " + path.string()}; };
+        std::string line;
+        while (std::getline(input, line)) {
+            if (line.empty() || line.front() == '#')
+                continue;
+            std::istringstream row(line);
+            char type;
+            if (!(row >> type))
+                continue;
+            if (type == 'v') {
+                float x, y, z;
+                if (!(row >> x >> y >> z) || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+                    throw invalid();
+                // Model +Z is north and +Y is east. The scene uses +Y and -Z respectively.
+                constexpr float pi = std::numbers::pi_v<float>;
+                points.push_back(
+                    {{x, z, -y}, {0.5f + std::atan2(y, x) / (2 * pi), std::atan2(std::hypot(x, y), z) / pi}});
+            } else if (type == 'f') {
+                Face face;
+                for (auto& index : face) {
+                    if (!(row >> index) || index == 0 || index > points.size())
+                        throw invalid();
+                    --index;
+                }
+                faces.push_back(face);
+                // Accumulate area-weighted normals while vertices are still shared.
+                const auto& a = points[face[0]].position;
+                const auto normal = glm::cross(points[face[1]].position - a, points[face[2]].position - a);
+                for (auto index : face)
+                    points[index].normal += normal;
+            } else {
+                throw invalid();
+            }
+            row >> std::ws;
+            if (!row.eof())
+                throw invalid();
+        }
+        if (input.bad() || faces.empty())
+            throw invalid();
+        for (auto& point : points) {
+            if (!(glm::length(point.normal) > 0))
+                throw invalid();
+            point.normal = glm::normalize(point.normal);
+        }
+
+        Mesh mesh;
+        mesh.vertices_.reserve(faces.size() * 3);
+        mesh.normals_.reserve(faces.size() * 3);
+        mesh.texcoords_.reserve(faces.size() * 3);
+        for (const auto& face : faces) {
+            const float maxU = std::max({points[face[0]].uv.x, points[face[1]].uv.x, points[face[2]].uv.x});
+            for (auto index : face) {
+                const auto& point = points[index];
+                auto uv = point.uv;
+                // Interpolate across the wrapped map edge at 180 degrees.
+                if (maxU - uv.x > 0.5f)
+                    uv.x += 1.0f;
+                mesh.vertices_.push_back(point.position);
+                mesh.normals_.push_back(point.normal);
+                mesh.texcoords_.push_back(uv);
+            }
+        }
+        return mesh;
     }
 
     Mesh Mesh::createRings(double innerRadius, double outerRadius, int segments) {

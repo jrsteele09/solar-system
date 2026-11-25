@@ -2,7 +2,7 @@
 #include "coordinates.hpp"
 #include "time.hpp"
 
-#include <SpiceUsr.h>
+#include "spice.hpp"
 #include <cmath>
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -59,26 +59,22 @@ namespace solar {
         return result;
     }
 
-    static void checkSpice() {
-        if (failed_c()) {
-            SpiceChar message[1841]{};
-            getmsg_c("LONG", sizeof(message), message);
-            reset_c();
-            throw std::runtime_error{std::string{"SPICE orientation error: "} + message};
-        }
-    }
-
     // SPICE is NASA/JPL NAIF's observation-geometry toolkit. The text PCK
     // pck00011.tpc comes from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/.
     // It supplies IAU pole and prime-meridian models, including the Moon's
     // periodic terms. Load it once before evaluating body-fixed frames.
     void loadOrientationModels(const char* pckPath) {
-        SpiceChar action[] = "RETURN";
-        SpiceChar output[] = "NONE";
-        erract_c("SET", 0, action);
-        errprt_c("SET", 0, output);
+        configureSpiceErrors();
         furnsh_c(pckPath);
         checkSpice();
+    }
+
+    glm::dvec3 bodyAxesKm(Body body) {
+        SpiceInt count;
+        SpiceDouble axes[3];
+        bodvcd_c(static_cast<int>(body), "RADII", 3, &count, axes);
+        checkSpice();
+        return {axes[0], axes[2], axes[1]};
     }
 
     glm::mat4 orientation(Body body, double utcSeconds) {
@@ -86,44 +82,18 @@ namespace solar {
             return earthOrientation(utcSeconds);
         }
 
-        const char* frame = nullptr;
-        switch (body) {
-        case Body::Mercury:
-            frame = "IAU_MERCURY";
-            break;
-        case Body::Venus:
-            frame = "IAU_VENUS";
-            break;
-        case Body::Moon:
-            frame = "IAU_MOON";
-            break;
-        case Body::MarsSystem:
-            frame = "IAU_MARS";
-            break;
-        case Body::JupiterSystem:
-            frame = "IAU_JUPITER";
-            break;
-        case Body::SaturnSystem:
-            frame = "IAU_SATURN";
-            break;
-        case Body::UranusSystem:
-            frame = "IAU_URANUS";
-            break;
-        case Body::NeptuneSystem:
-            frame = "IAU_NEPTUNE";
-            break;
-        case Body::PlutoSystem:
-            frame = "IAU_PLUTO";
-            break;
-        case Body::Sun:
-            frame = "IAU_SUN";
-            break;
-        case Body::Earth:
-            return earthOrientation(utcSeconds);
-        }
-        if (!frame || !std::isfinite(utcSeconds)) {
-            throw std::invalid_argument{"Invalid body or orientation time"};
-        }
+        if (!std::isfinite(utcSeconds))
+            throw std::invalid_argument{"Invalid orientation time"};
+
+        // Old ephemeris callers can also identify a planet by its system barycentre.
+        const int centre = static_cast<int>(planetCentre(body));
+        SpiceInt frameId;
+        SpiceBoolean found;
+        SpiceChar frame[64];
+        cidfrm_c(centre, sizeof(frame), &frameId, frame, &found);
+        checkSpice();
+        if (!found)
+            throw std::invalid_argument{"No body-fixed frame for this body"};
 
         // Evaluate the PCK body-fixed frame relative to J2000 at TDB seconds
         // past J2000. The position ephemeris uses the same time conversion.

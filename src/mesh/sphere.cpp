@@ -1,5 +1,6 @@
 #include "mesh.hpp"
 
+#include <glm/geometric.hpp>
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
@@ -52,6 +53,17 @@ namespace solar {
         Mesh mesh{std::move(vertices)};
         mesh.normals_ = std::move(normals);
         mesh.texcoords_ = std::move(texcoords);
+        return mesh;
+    }
+    Mesh Mesh::createEllipsoid(glm::vec3 axes, int rings, int slices) {
+        if (!(axes.x > 0 && axes.y > 0 && axes.z > 0) ||
+            !std::isfinite(axes.x) || !std::isfinite(axes.y) || !std::isfinite(axes.z))
+            throw std::invalid_argument{"Ellipsoid axes must be positive and finite"};
+        Mesh mesh = createSphere(1.0f, rings, slices);
+        for (std::size_t i = 0; i < mesh.vertices_.size(); ++i) {
+            mesh.vertices_[i] *= axes;
+            mesh.normals_[i] = glm::normalize(mesh.normals_[i] / axes);
+        }
         return mesh;
     }
 } // namespace solar

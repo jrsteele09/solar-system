@@ -16,7 +16,9 @@ namespace solar {
 
       private:
         Font font_{};
-        bool open_ = false;
+        enum class FlyToMenu { None, System, Moons };
+        FlyToMenu openMenu_ = FlyToMenu::None;
+        Body moonsMenuSystem_ = Body::Sun;
         bool hidden_ = false;
         bool draggingCloudOpacity_ = false;
         std::size_t listFirst_ = 0;

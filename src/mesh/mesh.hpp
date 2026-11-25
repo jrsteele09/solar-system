@@ -3,6 +3,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include <filesystem>
 #include <span>
 #include <vector>
 
@@ -10,7 +11,9 @@ namespace solar {
     class Mesh {
       public:
         static Mesh fromTriangles(std::span<const glm::vec3> vertices);
+        static Mesh loadSbmtObj(const std::filesystem::path& path);
         static Mesh createSphere(float radius = 1.0f, int rings = 192, int slices = 320);
+        static Mesh createEllipsoid(glm::vec3 axes, int rings, int slices);
         static Mesh createRings(double innerRadius, double outerRadius, int segments = 256);
 
         const std::vector<glm::vec3>& vertices() const { return vertices_; }
@@ -18,6 +21,7 @@ namespace solar {
         const std::vector<glm::vec2>& texcoords() const { return texcoords_; }
 
       private:
+        Mesh() = default;
         explicit Mesh(std::vector<glm::vec3> vertices);
 
         std::vector<glm::vec3> vertices_;

@@ -27,10 +27,7 @@ namespace solar {
         void flyToBody(const CelestialBody& body);
         void resetToBody(const CelestialBody& body, glm::dvec3 viewFromKm);
         const CelestialBody* followedBody() const { return followedBody_; }
-
-        // Start and advance a flight toward a moving target.
-        void flyTo(glm::dvec3 targetKm, float radiusSceneUnits);
-        bool updateFlight(glm::dvec3 targetKm, float elapsedSeconds);
+        bool isFlying() const { return flightTarget_ != nullptr; }
 
         // Rotate around a world position using the mouse movement in pixels.
         void orbit(glm::dvec3 targetKm, Vector2 mouseMovement);
@@ -53,17 +50,20 @@ namespace solar {
         Camera3D camera_{};
         const CelestialBody* orbitTarget_ = nullptr;
         const CelestialBody* followedBody_ = nullptr;
+        const CelestialBody* flightTarget_ = nullptr;
         Vector2 pressPosition_{};
         bool dragging_ = false;
-        bool flying_ = false;
         bool flightDeparted_ = false;
         double flightElapsed_ = 0.0;
         double flightArrivalDistanceKm_ = 0.0;
+        glm::dvec3 flightDepartureOffset_{};
+        double flightPullbackKm_ = 0.0;
         glm::dvec3 flightStartOffset_{};
         glm::dvec3 flightEndOffset_{};
         glm::dvec3 flightStartDirection_{};
         glm::dvec3 lastFollowedPosition_{};
 
         const CelestialBody* bodyUnderMouse(const Scene& scene) const;
+        bool updateFlight(glm::dvec3 targetKm, float elapsedSeconds);
     };
 } // namespace solar

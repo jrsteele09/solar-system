@@ -7,6 +7,9 @@ namespace solar {
     // Load the planetary orientation models before calling orientation().
     void loadOrientationModels(const char* pckPath);
 
+    // IAU ellipsoid semiaxes (km), ordered for the mesh: prime meridian, north, east.
+    glm::dvec3 bodyAxesKm(Body body);
+
     // Rotate a body's local mesh into the scene frame at the given UTC time.
     glm::mat4 orientation(Body body, double utcSeconds);
 } // namespace solar

@@ -101,14 +101,15 @@ namespace solar {
         double radius = radiusSceneUnits_ * ringOuterRadius_;
         for (const auto* effect : effects_) {
             radius = std::max(radius, static_cast<double>(effect->radius(camera.relativeScenePosition(positionKm_),
-                                                      static_cast<float>(radiusSceneUnits_), camera.raylibCamera().fovy, screenHeight)));
+                                                                         static_cast<float>(radiusSceneUnits_),
+                                                                         camera.raylibCamera().fovy, screenHeight)));
         }
         return static_cast<float>(radius);
     }
 
     void CelestialBody::drawEffects(const Camera& camera, float elapsedSeconds, int screenHeight) const {
         for (const auto* effect : effects_) {
-            effect->draw(camera.raylibCamera(), camera.relativeScenePosition(positionKm_), 
+            effect->draw(camera.raylibCamera(), camera.relativeScenePosition(positionKm_),
                          static_cast<float>(radiusSceneUnits_), elapsedSeconds, screenHeight);
         }
         if (rings_.meshCount == 0) {
@@ -198,7 +199,7 @@ namespace solar {
         auto body = std::unique_ptr<CelestialBody>{new CelestialBody{*this}};
 
         if (!surface_.empty()) {
-            body->surface_ = std::make_unique<SurfaceTexture>(surface_.c_str());
+            body->surface_ = std::make_unique<SurfaceTexture>(surface_.c_str(), surfaceMaxWidth_, false);
             body->setMaterialTexture(MATERIAL_MAP_ALBEDO, body->surface_->texture());
             if (surfaceShader_) {
                 body->model_.materials[0].shader = surfaceShader_->shader();

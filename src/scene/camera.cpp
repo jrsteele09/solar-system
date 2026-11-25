@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "astronomy/moons.hpp"
 #include "celestial/celestial_body.hpp"
 #include "scene/scene.hpp"
 
@@ -108,7 +109,7 @@ namespace solar {
         alignCameraUp(camera_);
         orbitTarget_ = nullptr;
         followedBody_ = nullptr;
-        flying_ = false;
+        flightTarget_ = nullptr;
     }
 
     const CelestialBody* Camera::bodyUnderMouse(const Scene& scene) const {
@@ -143,17 +144,22 @@ namespace solar {
 
         if (followedBody_ && !containsBody(followedBody_)) {
             followedBody_ = nullptr;
-            flying_ = false;
+            flightPullbackKm_ = 0.0;
         }
+        if (flightTarget_ && !containsBody(flightTarget_))
+            flightTarget_ = nullptr;
 
-        if (followedBody_) {
-            const glm::dvec3 target = followedBody_->positionKm();
-            if (flying_) {
-                updateFlight(target, GetFrameTime());
-            } else {
-                positionKm_ += target - lastFollowedPosition_;
-                camera_.target = relativeScenePosition(target);
+        if (flightTarget_) {
+            const glm::dvec3 target = flightTarget_->positionKm();
+            if (!updateFlight(target, GetFrameTime())) {
+                followedBody_ = flightTarget_;
+                lastFollowedPosition_ = target;
+                flightTarget_ = nullptr;
             }
+        } else if (followedBody_) {
+            const glm::dvec3 target = followedBody_->positionKm();
+            positionKm_ += target - lastFollowedPosition_;
+            camera_.target = relativeScenePosition(target);
             lastFollowedPosition_ = target;
         }
 
@@ -179,7 +185,7 @@ namespace solar {
                 dragging_ = true;
             }
             if (dragging_) {
-                flying_ = false;
+                flightTarget_ = nullptr;
                 followedBody_ = orbitTarget_;
                 lastFollowedPosition_ = orbitTarget_->positionKm();
                 orbit(lastFollowedPosition_, GetMouseDelta());
@@ -196,12 +202,6 @@ namespace solar {
         if (acceptMouse) {
             zoom(GetMouseWheelMove(), scene);
         }
-    }
-
-    void Camera::flyToBody(const CelestialBody& body) {
-        followedBody_ = &body;
-        lastFollowedPosition_ = body.positionKm();
-        flyTo(lastFollowedPosition_, body.radiusSceneUnits());
     }
 
     void Camera::resetToBody(const CelestialBody& body, glm::dvec3 viewFromKm) {
@@ -236,47 +236,74 @@ namespace solar {
                 continue;
             }
             const double radius = body->radiusSceneUnits();
-            const double clearance = std::max(0.1, radius * 0.01);
+            const double clearance = std::clamp(0.1, radius * 0.01, radius * 0.1);
             distance = limitCameraMovement(positionKm_, direction, distance, body->positionKm(),
                                            (radius + clearance) * kmPerSceneUnit_);
         }
 
         positionKm_ += direction * distance;
         if (followedBody_) {
-            camera_.target = relativeScenePosition(followedBody_->positionKm());
+            lastFollowedPosition_ = followedBody_->positionKm();
+            camera_.target = relativeScenePosition(lastFollowedPosition_);
         }
-        flying_ = false;
+        flightTarget_ = nullptr;
     }
 
-    void Camera::flyTo(glm::dvec3 targetKm, float radiusSceneUnits) {
-        const double distance = glm::length(positionKm_ - targetKm);
+    void Camera::flyToBody(const CelestialBody& body) {
+        const glm::dvec3 toTarget = body.positionKm() - positionKm_;
+        const double distance = glm::length(toTarget);
+        const double radiusSceneUnits = body.radiusSceneUnits();
         if (distance <= 0.0 || radiusSceneUnits <= 0.0f) {
             return;
         }
         const glm::dvec3 view{camera_.target.x, camera_.target.y, camera_.target.z};
         const double viewLength = glm::length(view);
-        flightStartDirection_ = viewLength > 0.0 ? view / viewLength : (targetKm - positionKm_) / distance;
+        flightStartDirection_ = viewLength > 0.0 ? view / viewLength : toTarget / distance;
         flightArrivalDistanceKm_ = std::min(distance, 3.5 * radiusSceneUnits * kmPerSceneUnit_);
+        flightPullbackKm_ = 0.0;
+        const auto systemOf = [](Body id) {
+            const auto* moon = moonInfo(id);
+            return moon ? moon->planet : id;
+        };
+        if (!isFlying() && followedBody_ && systemOf(followedBody_->id()) != systemOf(body.id())) {
+            flightDepartureOffset_ = positionKm_ - followedBody_->positionKm();
+            const double departureDistance = glm::length(flightDepartureOffset_);
+            const double departureRadius = followedBody_->radiusSceneUnits() * kmPerSceneUnit_;
+            if (departureDistance > departureRadius && departureDistance < 9.0 * departureRadius) {
+                flightStartDirection_ = -flightDepartureOffset_ / departureDistance;
+                flightPullbackKm_ = std::min(2.0 * departureDistance, 9.0 * departureRadius - departureDistance);
+            }
+        }
         flightElapsed_ = 0.0;
         flightDeparted_ = false;
-        flying_ = true;
+        flightTarget_ = &body;
     }
 
     bool Camera::updateFlight(glm::dvec3 targetKm, float elapsedSeconds) {
-        if (!flying_) {
-            return false;
-        }
+        const double pullbackDuration = flightPullbackKm_ > 0.0 ? 0.85 : 0.0;
         constexpr double turnDuration = 0.7;
         constexpr double travelDuration = 2.0;
-        constexpr double duration = turnDuration + travelDuration;
+        const double travelStart = pullbackDuration + turnDuration;
+        const double duration = travelStart + travelDuration;
+        const double previousElapsed = flightElapsed_;
         flightElapsed_ = std::min(duration, flightElapsed_ + std::max(0.0f, elapsedSeconds));
-        if (flightElapsed_ < turnDuration) {
+        if (previousElapsed < pullbackDuration) {
+            // Keep the departure body centred as it recedes, then turn from the end of the pullback.
+            const double t = std::min(1.0, flightElapsed_ / pullbackDuration);
+            const double smooth = t * t * (3.0 - 2.0 * t);
+            lastFollowedPosition_ = followedBody_->positionKm();
+            positionKm_ = lastFollowedPosition_ + flightDepartureOffset_ -
+                          flightStartDirection_ * (flightPullbackKm_ * smooth);
+            camera_.target = relativeScenePosition(lastFollowedPosition_);
+            alignCameraUp(camera_);
+            if (flightElapsed_ < pullbackDuration)
+                return true;
+        }
+        if (flightElapsed_ < travelStart) {
             const glm::dvec3 toTarget = targetKm - positionKm_;
             const double distance = glm::length(toTarget);
-            if (distance == 0.0) {
-                flying_ = false;
+            if (distance == 0.0)
                 return false;
-            }
             const glm::dvec3 destination = toTarget / distance;
             const double angle = std::acos(std::clamp(glm::dot(flightStartDirection_, destination), -1.0, 1.0));
             glm::dvec3 axis = glm::cross(flightStartDirection_, destination);
@@ -287,7 +314,7 @@ namespace solar {
                 }
             }
             axis = glm::normalize(axis);
-            const double t = flightElapsed_ / turnDuration;
+            const double t = (flightElapsed_ - pullbackDuration) / turnDuration;
             const double rotation = angle * t * t * (3.0 - 2.0 * t);
             const glm::dvec3 direction = flightStartDirection_ * std::cos(rotation) +
                                          glm::cross(axis, flightStartDirection_) * std::sin(rotation) +
@@ -300,20 +327,17 @@ namespace solar {
         if (!flightDeparted_) {
             flightStartOffset_ = positionKm_ - targetKm;
             const double distance = glm::length(flightStartOffset_);
-            if (distance == 0.0) {
-                flying_ = false;
+            if (distance == 0.0)
                 return false;
-            }
             flightEndOffset_ = flightStartOffset_ / distance * std::min(distance, flightArrivalDistanceKm_);
             flightDeparted_ = true;
         }
-        const double t = (flightElapsed_ - turnDuration) / travelDuration;
+        const double t = (flightElapsed_ - travelStart) / travelDuration;
         const double smooth = t * t * (3.0 - 2.0 * t);
         positionKm_ = targetKm + flightStartOffset_ * (1.0 - smooth) + flightEndOffset_ * smooth;
         camera_.target = relativeScenePosition(targetKm);
         alignCameraUp(camera_);
-        flying_ = flightElapsed_ < duration;
-        return flying_;
+        return flightElapsed_ < duration;
     }
 
     void Camera::orbit(glm::dvec3 targetKm, Vector2 mouseMovement) {

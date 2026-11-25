@@ -1,4 +1,5 @@
 #include "scene.hpp"
+#include "astronomy/moons.hpp"
 #include "astronomy/planet_orientation.hpp"
 
 #include <algorithm>
@@ -12,7 +13,6 @@ namespace solar {
     constexpr double mercuryRadiusKm = 2439.4;
     constexpr double venusRadiusKm = 6051.8;
     constexpr double earthRadiusKm = 6371.0084;
-    constexpr double moonRadiusKm = 1737.4;
     constexpr double marsRadiusKm = 3389.5;
     constexpr double jupiterRadiusKm = 69911.0;
     constexpr double saturnRadiusKm = 58232.0;
@@ -26,7 +26,7 @@ namespace solar {
     constexpr int earthCloudsHeight = 1024;
 
     Scene::Scene(double utcSeconds, double kmPerSceneUnit)
-        : ephemeris_(SOLAR_EPHEMERIS_PATH),
+        : ephemeris_(SOLAR_EPHEMERIS_PATH, SOLAR_SATELLITE_PATH),
           surfaceShader_(SOLAR_SURFACE_SHADER_VERTEX_PATH, SOLAR_SURFACE_SHADER_FRAGMENT_PATH),
           sunGlow_(SOLAR_SUN_GLOW_PATH), stars_(SOLAR_STAR_CATALOGUE_PATH) {
 
@@ -44,7 +44,6 @@ namespace solar {
                               .addEffect(sunGlow_)
                               .build());
 
-        // Make the planets and the Moon
         const Mesh planetSphereMesh = Mesh::createSphere(1.0f, 96, 160);
 
         // Lambda to create a celestial body builder with common settings.
@@ -56,7 +55,7 @@ namespace solar {
                 .surfaceShader(surfaceShader_)
                 .orientation([id](double utc, double) {
                     auto rotation = orientation(id, utc);
-                    if (id == Body::PlutoSystem) {
+                    if (id == Body::Pluto) {
                         // NASA's Pluto map is centred near 180 degrees longitude;
                         // the sphere mesh places the centre of its map at zero.
                         rotation[0] = -rotation[0];
@@ -67,27 +66,43 @@ namespace solar {
             return builder;
         };
 
-        // Add the planets and the Moon
-        bodies_.push_back(body(Body::Mercury, mercuryRadiusKm, SOLAR_MERCURY_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::Venus, venusRadiusKm, SOLAR_VENUS_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH)
-                              .nightLights(SOLAR_EARTH_NIGHT_TEXTURE_PATH)
-                              .clouds({earthCloudsUrl, earthCloudsWidth, earthCloudsHeight})
-                              .build());
-        bodies_.push_back(body(Body::Moon, moonRadiusKm, SOLAR_MOON_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::MarsSystem, marsRadiusKm, SOLAR_MARS_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::JupiterSystem, jupiterRadiusKm, SOLAR_JUPITER_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::SaturnSystem, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH)
-                              .rings(SOLAR_SATURN_RING_TEXTURE_PATH, 74658.0f / 58232.0f, 136780.0f / 58232.0f)
-                              .build());
-        bodies_.push_back(body(Body::UranusSystem, uranusRadiusKm, SOLAR_URANUS_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::NeptuneSystem, neptuneRadiusKm, SOLAR_NEPTUNE_TEXTURE_PATH).build());
-        bodies_.push_back(body(Body::PlutoSystem, plutoRadiusKm, SOLAR_PLUTO_TEXTURE_PATH).build());
+        const std::filesystem::path assetDir{SOLAR_ASSET_DIR};
+
+        // Keep each moon next to its planet in the fly-to list.
+        auto addSystem = [&](const CelestialBody::Builder& builder) {
+            const Body planetId = bodies_.emplace_back(builder.build())->id();
+            for (const auto& moon : majorMoons) {
+                if (moon.planet != planetId)
+                    continue;
+                const auto mesh = moon.shapeModel
+                                      ? Mesh::loadSbmtObj(assetDir / moon.shapeModel)
+                                      : Mesh::createEllipsoid(glm::vec3(bodyAxesKm(moon.id)), moon.rings, moon.slices);
+                bodies_.push_back(CelestialBody::Builder{mesh, 1.0 / kmPerSceneUnit}
+                                      .id(moon.id)
+                                      .position(ephemeris_.position(moon.id, utcSeconds))
+                                      .orientation([id = moon.id](double utc, double) { return orientation(id, utc); })
+                                      .surface((assetDir / moon.texture).string(), moon.maxTextureWidth)
+                                      .surfaceShader(surfaceShader_)
+                                      .build());
+            }
+        };
+        addSystem(body(Body::Mercury, mercuryRadiusKm, SOLAR_MERCURY_TEXTURE_PATH));
+        addSystem(body(Body::Venus, venusRadiusKm, SOLAR_VENUS_TEXTURE_PATH));
+        addSystem(body(Body::Earth, earthRadiusKm, SOLAR_EARTH_TEXTURE_PATH)
+                      .nightLights(SOLAR_EARTH_NIGHT_TEXTURE_PATH)
+                      .clouds({earthCloudsUrl, earthCloudsWidth, earthCloudsHeight}));
+        addSystem(body(Body::Mars, marsRadiusKm, SOLAR_MARS_TEXTURE_PATH));
+        addSystem(body(Body::Jupiter, jupiterRadiusKm, SOLAR_JUPITER_TEXTURE_PATH));
+        addSystem(body(Body::Saturn, saturnRadiusKm, SOLAR_SATURN_TEXTURE_PATH)
+                      .rings(SOLAR_SATURN_RING_TEXTURE_PATH, 74658.0f / 58232.0f, 136780.0f / 58232.0f));
+        addSystem(body(Body::Uranus, uranusRadiusKm, SOLAR_URANUS_TEXTURE_PATH));
+        addSystem(body(Body::Neptune, neptuneRadiusKm, SOLAR_NEPTUNE_TEXTURE_PATH));
+        addSystem(body(Body::Pluto, plutoRadiusKm, SOLAR_PLUTO_TEXTURE_PATH));
     }
 
     const CelestialBody& Scene::getCelestialBody(Body id) const {
-        const auto entry =
-            std::find_if(bodies_.begin(), bodies_.end(), [id](const auto& item) { return item->id() == id; });
+        const auto entry = std::find_if(bodies_.begin(), bodies_.end(),
+                                        [centre = planetCentre(id)](const auto& item) { return item->id() == centre; });
 
         if (entry == bodies_.end()) {
             throw std::out_of_range{"Body is not in the scene"};
@@ -97,8 +112,8 @@ namespace solar {
     }
 
     CelestialBody& Scene::getCelestialBody(Body id) {
-        const auto entry =
-            std::find_if(bodies_.begin(), bodies_.end(), [id](const auto& item) { return item->id() == id; });
+        const auto entry = std::find_if(bodies_.begin(), bodies_.end(),
+                                        [centre = planetCentre(id)](const auto& item) { return item->id() == centre; });
         if (entry == bodies_.end()) {
             throw std::out_of_range{"Body is not in the scene"};
         }
@@ -115,16 +130,20 @@ namespace solar {
         const int screenHeight = std::max(GetScreenHeight(), 1);
         const float aspectRatio = static_cast<float>(GetScreenWidth()) / screenHeight;
         double farDistance = 4000.0;
+        double nearDistance = RL_CULL_DISTANCE_NEAR;
 
         for (const auto& entry : bodies_) {
             const auto& body = *entry;
             const Vector3 position = camera.relativeScenePosition(body.positionKm());
             const glm::vec3 relativePosition{position.x, position.y, position.z};
+            // At the Martian moons the default near plane is larger than the whole body.
+            const double clearance = glm::length(relativePosition) - body.radiusSceneUnits();
+            nearDistance = std::min(nearDistance, std::max(0.000001, clearance * 0.25));
             farDistance = std::max(farDistance, static_cast<double>(glm::length(relativePosition) +
                                                                     body.visibleRadius(camera, screenHeight)));
         }
 
-        rlSetClipPlanes(rlGetCullDistanceNear(), farDistance * 1.1);
+        rlSetClipPlanes(nearDistance, farDistance * 1.1);
 
         stars_.draw(camera.raylibCamera());
         BeginMode3D(camera.raylibCamera());

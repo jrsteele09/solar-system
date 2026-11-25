@@ -1,4 +1,6 @@
 #include "ephemeris.hpp"
+#include "moons.hpp"
+#include "spice.hpp"
 #include "coordinates.hpp"
 #include "time.hpp"
 
@@ -12,6 +14,8 @@
 namespace solar {
 
     const char* bodyName(Body body) {
+        if (const auto* moon = moonInfo(body))
+            return moon->name;
         switch (body) {
         case Body::Sun:
             return "Sun";
@@ -21,22 +25,27 @@ namespace solar {
             return "Venus";
         case Body::Earth:
             return "Earth";
-        case Body::Moon:
-            return "Moon";
+        case Body::Mars:
         case Body::MarsSystem:
             return "Mars";
+        case Body::Jupiter:
         case Body::JupiterSystem:
             return "Jupiter";
+        case Body::Saturn:
         case Body::SaturnSystem:
             return "Saturn";
+        case Body::Uranus:
         case Body::UranusSystem:
             return "Uranus";
+        case Body::Neptune:
         case Body::NeptuneSystem:
             return "Neptune";
+        case Body::Pluto:
         case Body::PlutoSystem:
             return "Pluto";
+        default:
+            return "Unknown";
         }
-        return "Unknown";
     }
 
     // Read a 32-bit little-endian unsigned integer, rejecting incomplete data.
@@ -126,6 +135,17 @@ namespace solar {
             throw std::runtime_error("Empty ephemeris");
     }
 
+    Ephemeris::Ephemeris(const std::string& path, const char* satellitePath) : Ephemeris(path) {
+        configureSpiceErrors();
+        spklef_c(satellitePath, &satelliteHandle_);
+        checkSpice();
+    }
+
+    Ephemeris::~Ephemeris() {
+        if (satelliteHandle_)
+            spkuef_c(satelliteHandle_);
+    }
+
     // Find the target's position relative to the solar system barycentre, its centre of mass.
     glm::dvec3 Ephemeris::barycentricPosition(int target, double seconds) const {
         glm::dvec3 result{0};
@@ -164,6 +184,18 @@ namespace solar {
     glm::dvec3 Ephemeris::positionAtTdb(Body body, double seconds) const {
         if (!std::isfinite(seconds))
             throw std::invalid_argument("Invalid ephemeris time");
+        // Physical centres and satellites of Mars through Pluto share the DE442s
+        // system barycentre. Read just their local offset from the satellite SPK.
+        const int target = static_cast<int>(body);
+        if (target >= 400 && target <= 999) {
+            if (!satelliteHandle_)
+                throw std::out_of_range("A satellite ephemeris is required for this body");
+            const int system = target / 100;
+            SpiceDouble offset[3], lightTime;
+            spkezp_c(target, seconds, "J2000", "NONE", system, offset, &lightTime);
+            checkSpice();
+            return positionAtTdb(static_cast<Body>(system), seconds) + toScene({offset[0], offset[1], offset[2]});
+        }
         // Subtract the Sun’s position to put it at the origin.
         return toScene(barycentricPosition(static_cast<int>(body), seconds) - barycentricPosition(10, seconds));
     }

@@ -7,8 +7,7 @@
 #include <vector>
 
 namespace solar {
-    // JPL uses the centres of Earth, Moon, Mercury and Venus, but the combined
-    // planet-and-moons centre of mass for the outer planets.
+    // NAIF IDs distinguish planets and moons from their system barycentres.
     enum class Body {
         Sun = 10,
         Mercury = 199,
@@ -20,8 +19,40 @@ namespace solar {
         SaturnSystem = 6,
         UranusSystem = 7,
         NeptuneSystem = 8,
-        PlutoSystem = 9
+        PlutoSystem = 9,
+        Mars = 499,
+        Jupiter = 599,
+        Saturn = 699,
+        Uranus = 799,
+        Neptune = 899,
+        Pluto = 999,
+        Phobos = 401,
+        Deimos = 402,
+        Io = 501,
+        Europa = 502,
+        Ganymede = 503,
+        Callisto = 504,
+        Mimas = 601,
+        Enceladus = 602,
+        Tethys = 603,
+        Dione = 604,
+        Rhea = 605,
+        Titan = 606,
+        Iapetus = 608,
+        Miranda = 705,
+        Ariel = 701,
+        Umbriel = 702,
+        Titania = 703,
+        Oberon = 704,
+        Triton = 801,
+        Charon = 901
     };
+
+    // Resolve a system ID when a caller wants the rendered planet or its IAU frame.
+    inline Body planetCentre(Body body) {
+        const int id = static_cast<int>(body);
+        return (id >= 4 && id <= 9) ? static_cast<Body>(100 * id + 99) : body;
+    }
 
     // Display name for an ephemeris body.
     const char* bodyName(Body body);
@@ -33,6 +64,10 @@ namespace solar {
       public:
         // Open the JPL file so it is ready to answer questions about positions.
         explicit Ephemeris(const std::string& path);
+        Ephemeris(const std::string& path, const char* satellitePath);
+        ~Ephemeris();
+        Ephemeris(const Ephemeris&) = delete;
+        Ephemeris& operator=(const Ephemeris&) = delete;
 
         // Find where a body is relative to the Sun at a given UTC clock time.
         glm::dvec3 position(Body body, double utcSeconds) const;
@@ -50,6 +85,7 @@ namespace solar {
         // The original JPL file, kept in memory for quick lookups.
         std::vector<std::uint8_t> ephemerisBytes_;
         std::vector<Segment> segments_;
+        int satelliteHandle_ = 0;
 
         // Read one number from the JPL file at the given location.
         double readDouble(std::size_t offset) const;

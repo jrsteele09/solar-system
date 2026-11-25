@@ -127,7 +127,8 @@ namespace solar {
         }
 
         // Surface texture, shared shader and base appearance.
-        Builder& surface(std::string path) {
+        Builder& surface(std::string path, int maxWidth = 0) {
+            surfaceMaxWidth_ = maxWidth;
             surface_ = std::move(path);
             return *this;
         }
@@ -188,6 +189,7 @@ namespace solar {
 
         // Surface asset, borrowed shader and base appearance.
         std::string surface_;
+        int surfaceMaxWidth_ = 0;
         const SurfaceShader* surfaceShader_ = nullptr;
         SurfaceStyle style_ = SurfaceStyle::Wireframe;
         Color color_ = WHITE;
